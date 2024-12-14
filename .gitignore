@@ -1,3 +1,4 @@
 data/
 summaries/
 __pycache__/
+.snatch_plots.sh
