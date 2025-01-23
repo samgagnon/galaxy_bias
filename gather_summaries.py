@@ -98,8 +98,8 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description='Plot the LAELF')
-    parser.add_argument('-z', type=int, default=100, help='Random seed')
-    parser.add_argument('-m', type=int, default=1, help='Min mass')
+    parser.add_argument('-z', type=float, default=6.6, help='Redshift')
+    parser.add_argument('-m', type=float, default=1e8, help='Minimum halo mass')
     args = parser.parse_args()
 
     z = args.z

@@ -146,3 +146,52 @@ logphi_up_konno = 1e-3*np.array([154, 101, 87, 140, \
 logphi_low_konno = 1e-3*np.array([317, 258, 243, 300, \
                     374, 438, 917, 917])
 
+# MAGPI LAE data
+# https://arxiv.org/pdf/2410.17684
+z_MAGPI = np.array([5.4955, 5.501, 5.5267, 5.5393, 5.6483, 5.657, \
+                    5.7198, 5.7643, 5.775, 5.801, 5.9285, 5.9815, \
+                    6.039, 6.046, 6.0462, 6.0464, 6.1485, 6.1662, \
+                    6.2481, 6.4202, 6.554, 6.6073])
+MUV_MAGPI = -1*np.array([22.2, 22.17, 0, 19.96, 20.8, 20.87, 20.41, \
+                        0, 0, 20.22, 22.3, 21.42, 0, 22.28, 21.01, \
+                        21.55, 0, 21.22, 23.27, 19.74, 20.12, 21.33])
+EW_MAGPI = np.array([23.18, 72.24, 66.27, 70.2, 19.74, 34.5, 69.01, \
+                    29.36, 25.4, 37.1, 42.1, 10.06, 23.54, 12.5, 43.2, \
+                    38.92, 65.81, 12.65, 13.73, 37.43, 16.83, 16.97])
+EW_MAGPI_sigma = np.array([3.28, 9.65, 12.43, 17.91, 4.71, 7.16, 37.78, \
+                        8.73, 8.09, 15.06, 14.68, 1.59, 6.15, 3.15, 13.37, \
+                        7.83, 9.58, 4.23, 2.55, 12.97, 4.77, 3.57])
+
+def get_magpi_data():
+    return z_MAGPI, MUV_MAGPI, EW_MAGPI, EW_MAGPI_sigma
+
+def get_tang_data():
+    # TANG LAE data
+    # https://arxiv.org/pdf/2402.06070
+    MUV, MUV_err, z, ew_lya, ew_lya_err = np.load('data/tang24.npy').T
+    return MUV, MUV_err, z, ew_lya, ew_lya_err
+
+def get_vandels_data():
+    # VANDELS LAE data
+    # https://arxiv.org/pdf/2309.14436
+    z, f_lya, f_lya_err, ew_lya, ew_lya_err = np.load('data/vandels.npy').T
+    return z, f_lya, f_lya_err, ew_lya, ew_lya_err
+
+if __name__ == "__main__":
+    from astropy.cosmology import Planck18
+    from astropy import units as u
+
+    z, f_lya, f_lya_err, ew_lya, ew_lya_err = get_vandels_data()
+
+    # convert flux to luminosity
+    f_lya *= u.mW/u.m**2
+    L_lya = 1215.67*4*np.pi*(Planck18.luminosity_distance(z).to('cm'))**2*f_lya/10
+
+    L_lya = L_lya.to(u.erg/u.s).value
+    # print(np.log10(L_lya))
+    constant = 2.47 * 1e15 / 1216 / (
+                        1500 / 1216) ** (-2 - 2)
+    # these values are a bit high... let's see how they cluster with the others
+    MUV = -2.5*np.log10(L_lya/constant) + 51.6
+
+    print(MUV)
