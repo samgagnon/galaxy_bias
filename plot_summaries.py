@@ -112,7 +112,8 @@ if __name__ == "__main__":
     # location of HMFs
     dat_dir = f'/data/z{z}/'
     # location of halo summaries
-    load_dir = f'/data/z{z}/minmass_8/sam/'
+    # load_dir = f'/data/z{z}/minmass_8/sam/'
+    load_dir = f'/summaries/z{z}/'
     # load_dir = f'/data/z{z}/minmass_9/sam/'
     # load_dir = f'/data/z{z}/minmass_10/sam/'
 

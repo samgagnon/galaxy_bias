@@ -6,48 +6,44 @@ Samuel Gagnon-Hartman, 2024
 Scuola Normale Superiore, Pisa
 """
 
-import time, os
+import os
 
 import numpy as np
 import py21cmfast as p21c
 
-from numba import njit
-from scipy import integrate, interpolate
-
 from astropy import units as u
-from astropy import constants as c
 from astropy.cosmology import Planck18, z_at_value
 
-def plot_LC_slice(d_transverse, xHI, density, vz):
-    """
-    Plot a slice of the LC cube.
-    """
-    # plot slice of LC cube
-    fig, axs = plt.subplots(1, 3, figsize=(18, 5), sharey=True, constrained_layout=True)
+# def plot_LC_slice(d_transverse, xHI, density, vz):
+#     """
+#     Plot a slice of the LC cube.
+#     """
+#     # plot slice of LC cube
+#     fig, axs = plt.subplots(1, 3, figsize=(18, 5), sharey=True, constrained_layout=True)
 
-    IDX = 50
-    axs[0].set_aspect('equal')
-    axs[1].set_aspect('equal')
-    axs[2].set_aspect('equal')
+#     IDX = 50
+#     axs[0].set_aspect('equal')
+#     axs[1].set_aspect('equal')
+#     axs[2].set_aspect('equal')
 
-    mesh0 = axs[0].pcolormesh(d_transverse, d_transverse, xHI[IDX], cmap='Purples')
-    cb = plt.colorbar(mesh0, ax=axs[0])
-    cb.set_label(r'$x_{\rm HI}$', fontsize=16)
-    axs[0].set_xlabel('Mpc', fontsize=16)
-    axs[0].set_ylabel('Mpc', fontsize=16)
+#     mesh0 = axs[0].pcolormesh(d_transverse, d_transverse, xHI[IDX], cmap='Purples')
+#     cb = plt.colorbar(mesh0, ax=axs[0])
+#     cb.set_label(r'$x_{\rm HI}$', fontsize=16)
+#     axs[0].set_xlabel('Mpc', fontsize=16)
+#     axs[0].set_ylabel('Mpc', fontsize=16)
 
-    mesh1 = axs[1].pcolormesh(d_transverse, d_transverse, density[IDX], cmap='inferno')
-    cb = plt.colorbar(mesh1, ax=axs[1])
-    cb.set_label(r'$\delta$', fontsize=16)
-    axs[1].set_xlabel('Mpc', fontsize=16)
+#     mesh1 = axs[1].pcolormesh(d_transverse, d_transverse, density[IDX], cmap='inferno')
+#     cb = plt.colorbar(mesh1, ax=axs[1])
+#     cb.set_label(r'$\delta$', fontsize=16)
+#     axs[1].set_xlabel('Mpc', fontsize=16)
 
-    mesh2 = axs[2].pcolormesh(d_transverse, d_transverse, vz[IDX], cmap='magma')
-    cb = plt.colorbar(mesh2, ax=axs[2])
-    cb.set_label(r'$\Delta v_z$ [proper km/s]', fontsize=16)
-    axs[2].set_xlabel('Mpc', fontsize=16)
+#     mesh2 = axs[2].pcolormesh(d_transverse, d_transverse, vz[IDX], cmap='magma')
+#     cb = plt.colorbar(mesh2, ax=axs[2])
+#     cb.set_label(r'$\Delta v_z$ [proper km/s]', fontsize=16)
+#     axs[2].set_xlabel('Mpc', fontsize=16)
 
-    os.makedirs('./plots', exist_ok=True)
-    plt.savefig('./plots/LC_slice.png', dpi=300)
+#     os.makedirs('./plots', exist_ok=True)
+#     plt.savefig('./plots/LC_slice.png', dpi=300)
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
@@ -59,7 +55,7 @@ if __name__ == "__main__":
 
     
     # import the LC cube and extract the relevant quantities
-    LC = p21c.LightCone.read('./data/lightcones/LC.h5')
+    LC = p21c.LightCone.read('./data/lightcones/sgh25.h5')
     xHI = LC.xH_box
     vz = LC.velocity_z
     density = LC.density
@@ -111,5 +107,6 @@ if __name__ == "__main__":
     # plt.hist(nonzero_dvz, bins=100, histtype='step', color='k')
     # plt.show()
 
-    plot_LC_slice(d_transverse, xHI, density, dvz)
+    os.makedirs('./data/absorption_properties', exist_ok=True)
+    np.save('./data/absorption_properties/dvz.npy', dvz)
     

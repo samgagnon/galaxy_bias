@@ -23,7 +23,7 @@ if __name__ == "__main__":
     plt.rcParams.update({'font.size': 14})
 
     # import the lightcone and extract the relevant quantities
-    LC = p21c.LightCone.read('./data/lightcones/LC.h5')
+    LC = p21c.LightCone.read('./data/lightcones/sgh25.h5')
     xHI = LC.xH_box
     vz = LC.velocity_z
     density = LC.density
@@ -150,8 +150,8 @@ if __name__ == "__main__":
     np.save('./data/absorption_properties/z_table_list.npy', z_table_list)
     np.save('./data/absorption_properties/dz_list.npy', dz_list)
     np.save('./data/absorption_properties/z_LoS.npy', z_LoS)
-    np.save('./data/absorption_properties/z_LoS_edges.npy', z_LoS_edges)
-    np.save('./data/absorption_properties/d_LoS_edges.npy', d_LoS_edges.value)
+    # np.save('./data/absorption_properties/z_LoS_edges.npy', z_LoS_edges)
+    # np.save('./data/absorption_properties/d_LoS_edges.npy', d_LoS_edges.value)
     np.save('./data/absorption_properties/prefactor.npy', prefactor)
     np.save('./data/absorption_properties/n_HI.npy', n_HI)
     

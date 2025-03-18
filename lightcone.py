@@ -1,6 +1,25 @@
 import py21cmfast as p21c
 
+import logging, os
+
 if __name__ == "__main__":
+
+    # logging and cacheing
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+
+    import argparse
+
+    parser = argparse.ArgumentParser(description='run multiple ionbox')
+    parser.add_argument('--cache', default='./data/lc_cache/sgh25/', \
+                        help='cache folder (set to scratch for submitted jobs)')
+
+    args = parser.parse_args()
+
+    if not os.path.exists(args.cache):
+        os.mkdir(args.cache)
+
+    p21c.config['direc'] = args.cache
 
     min_redshift=5.0
     max_redshift=35.0
@@ -9,9 +28,9 @@ if __name__ == "__main__":
                              max_redshift  = max_redshift,
                              z_step_factor = 1.02)
 
-    inputs = p21c.InputParameters.from_template('./sgh24.toml',\
+    inputs = p21c.InputParameters.from_template('./sgh25.toml',\
                 random_seed=1,\
-                node_redshifts=node_redshifts).evolve_input_structs(SAMPLER_MIN_MASS=1e8)
+                node_redshifts=node_redshifts).evolve_input_structs(N_THREADS=4)
 
     lcn = p21c.RectilinearLightconer.with_equal_cdist_slices(
         min_redshift=inputs.node_redshifts[-1],
@@ -26,6 +45,4 @@ if __name__ == "__main__":
         inputs=inputs,
     )
 
-    # we need to do something about the caches, does cache_files exist?
-
-    lc.save('./data/test_lc.h5', clobber=True)
+    lc.save('./data/lightcones/sgh25.h5', clobber=True)

@@ -1,14 +1,16 @@
-# Run template for latest fiducial grid-based 21cmfast runs
+# Template for reproducing Gagnon-Hartman et al. (2025)
 
 [CosmoParams]
 
 [UserParams]
 HII_DIM = 200
-DIM = 300
+DIM = 600
 BOX_LEN = 300
 HMF = 'ST'
-SAMPLER_MIN_MASS = 1e10
+N_THREADS = 4
+SAMPLER_MIN_MASS = 5e8
 AVG_BELOW_SAMPLER = true
+PERTURB_ON_HIGH_RES = true
 
 [AstroParams]
 R_BUBBLE_MAX = 50.0

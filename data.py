@@ -168,8 +168,8 @@ def get_magpi_data():
 def get_tang_data():
     # TANG LAE data
     # https://arxiv.org/pdf/2402.06070
-    MUV, MUV_err, z, ew_lya, ew_lya_err = np.load('data/tang24.npy').T
-    return MUV, MUV_err, z, ew_lya, ew_lya_err
+    MUV, MUV_err, z, ew_lya, ew_lya_err, dv_lya, dv_lya_err, ID = np.load('data/tang24.npy').T
+    return MUV, MUV_err, z, ew_lya, ew_lya_err, dv_lya, dv_lya_err, ID
 
 def get_vandels_data():
     # VANDELS LAE data

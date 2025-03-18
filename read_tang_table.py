@@ -97,14 +97,38 @@ if __name__ == "__main__":
     # from this, I wish to create a npy file containing relevant information
     # AB magnitude, redshift, Lya EW
 
-    gal_props = np.zeros((len(galaxies), 5))
+    gal_props = np.zeros((len(galaxies), 12))
 
     for i, galaxy in enumerate(galaxies):
+        if len(galaxy) > 10:
+            if galaxy[:4]=='MUSE':
+                # MUSE Wide limiting flux 2e-18
+                ID = 0
+            elif 'vdrop' in galaxy:
+                # vdrop
+                ID = 2
+            elif '_' in galaxy:
+                # idrop
+                ID = 3
+            else:
+                # bdrop
+                ID = 4
+        else:
+            # MUSE Deep limiting flux 2e-19
+            ID = 1
+        
         MUV = galaxies[galaxy]['MUV']
         MUV_err = galaxies[galaxy]['MUV_err']
         z = galaxies[galaxy]['z']
         ew_lya = galaxies[galaxy]['ew_lya']
         ew_lya_err = galaxies[galaxy]['ew_lya_err']
-        gal_props[i] = np.array([MUV, MUV_err, z, ew_lya, ew_lya_err])
+        dv_lya = galaxies[galaxy]['dv_lya']
+        dv_lya_err = galaxies[galaxy]['dv_lya_err']
+        fescA = galaxies[galaxy]['fescA']
+        fescA_err = galaxies[galaxy]['fescA_err']
+        fescB = galaxies[galaxy]['fescB']
+        fescB_err = galaxies[galaxy]['fescB_err']
+        gal_props[i] = np.array([MUV, MUV_err, z, ew_lya, ew_lya_err, dv_lya, dv_lya_err, fescA,\
+                                 fescA_err, fescB, fescB_err, ID])
     
     np.save("data/tang24.npy", gal_props)

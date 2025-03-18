@@ -15,33 +15,33 @@ from astropy import units as u
 from astropy import constants as c
 from astropy.cosmology import Planck18, z_at_value
 
-from utils import *
+# from utils import *
 
-def delta_nu(T):
-    """
-    Returns the Doppler width of a Lya line with temperature T
-    """
-    return ((freq_Lya/c.c) * np.sqrt(2*c.k_B*T/c.m_p.to('kg'))).to('Hz')
+# def delta_nu(T):
+#     """
+#     Returns the Doppler width of a Lya line with temperature T
+#     """
+#     return ((freq_Lya/c.c) * np.sqrt(2*c.k_B*T/c.m_p.to('kg'))).to('Hz')
 
-def get_a(dnu):
-    """
-    Returns the damping parameter of a Lya line with Doppler width dnu
-    """
-    return (decay_factor/(4*np.pi*dnu)).to('')
+# def get_a(dnu):
+#     """
+#     Returns the damping parameter of a Lya line with Doppler width dnu
+#     """
+#     return (decay_factor/(4*np.pi*dnu)).to('')
 
-def voigt_tasitsiomi(x, dnu):
-    """
-    Returns the Voigt profile of a line with damping parameter a
-    """
-    dL = 9.936e7*u.Hz
-    a = 0.5*(dL/dnu)
-    xt = x**2
-    z = (xt - 0.855)/(xt + 3.42)
-    q = np.zeros(len(x))
-    IDX = (z > 0.0)
-    q[IDX] = z[IDX]*(1 + 21/xt[IDX])*(a/np.pi/(xt[IDX] + 1.0))*\
-        (0.1117 + z[IDX]*(4.421 + z[IDX]*(-9.207 + 5.674*z[IDX])))
-    return (q + np.exp(-xt)/1.77245385)*np.sqrt(np.pi)
+# def voigt_tasitsiomi(x, dnu):
+#     """
+#     Returns the Voigt profile of a line with damping parameter a
+#     """
+#     dL = 9.936e7*u.Hz
+#     a = 0.5*(dL/dnu)
+#     xt = x**2
+#     z = (xt - 0.855)/(xt + 3.42)
+#     q = np.zeros(len(x))
+#     IDX = (z > 0.0)
+#     q[IDX] = z[IDX]*(1 + 21/xt[IDX])*(a/np.pi/(xt[IDX] + 1.0))*\
+#         (0.1117 + z[IDX]*(4.421 + z[IDX]*(-9.207 + 5.674*z[IDX])))
+#     return (q + np.exp(-xt)/1.77245385)*np.sqrt(np.pi)
 
 # change decorator to include parallel=True
 @njit(parallel=True)
@@ -57,6 +57,7 @@ def main_loop(NLINES, xHI, density, z_LoS, DIM, LoS_DIM, wavelength_range,\
     # change outer loops to prange
     for i in prange(DIM):
         for j in prange(DIM):
+            # print((i+j)/DIM**2, '%s%%' % 'complete')
             for k in prange(LoS_DIM):
                 rel_idcs = rel_idcs_list[k]
                 
@@ -91,7 +92,7 @@ def main_loop(NLINES, xHI, density, z_LoS, DIM, LoS_DIM, wavelength_range,\
 
 if __name__ == "__main__":
 
-    LC = p21c.LC.read('./data/lightcones/LC.h5')
+    LC = p21c.LightCone.read('./data/lightcones/LC.h5')
     xHI = LC.xH_box
     vz = LC.velocity_z
     density = LC.density
@@ -100,6 +101,9 @@ if __name__ == "__main__":
     LoS_DIM = xHI.shape[-1]
     L = 300*u.Mpc
     res = L/DIM
+
+    # wavelength range
+    wavelength_range = np.linspace(1215, 1220, 1000)
 
     # this file contains properties which are common to all lightcones 
     # of the same size, regardless of astrophysical model
@@ -119,12 +123,12 @@ if __name__ == "__main__":
     # from plot import plot_neutral_density
     # plot_neutral_density(z_LoS, n_HI)
 
-    import matplotlib.pyplot as plt
-    rc = {"font.family" : "serif", \
-        "mathtext.fontset" : "stix"}
-    plt.rcParams.update(rc)
-    plt.rcParams["font.serif"] = ["Times New Roman"] + plt.rcParams["font.serif"]
-    plt.rcParams.update({'font.size': 14})
+    # import matplotlib.pyplot as plt
+    # rc = {"font.family" : "serif", \
+    #     "mathtext.fontset" : "stix"}
+    # plt.rcParams.update(rc)
+    # plt.rcParams["font.serif"] = ["Times New Roman"] + plt.rcParams["font.serif"]
+    # plt.rcParams.update({'font.size': 14})
 
     # plt.imshow(log_voigt_tables[50], origin='lower')
     # plt.colorbar()
@@ -133,7 +137,6 @@ if __name__ == "__main__":
 
     voigt_tables = np.zeros_like(log_voigt_tables, dtype=np.float64)
     for i in range(len(z_LoS)):
-        # print(n_HI[i], voigt_tables[i].mean(), z_table_constructor_list[i].mean())
         voigt_tables[i] = 10**(log_voigt_tables[i].astype(np.float64))
         z_table_constructor_list[i] = 10**z_table_constructor_list[i]
 
