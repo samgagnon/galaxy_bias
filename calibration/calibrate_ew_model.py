@@ -104,10 +104,10 @@ def get_lya_properties(halo_masses, muv, redshift, mode='mason'):
         w, emit_bool = get_ewpdf_mason2018(muv)
         muv = muv[emit_bool]
         dv = get_dv_mason2018(muv, redshift)
-        sigma_v = dv / 3
+        sigma_v = dv / 1
         halo_masses = halo_masses[emit_bool]
 
-        fesc = 1 - 0.5*(1 + erf((dv - v_circ[emit_bool])/(np.sqrt(2)*(sigma_v))))
+        fesc = 0.5*(1 - erf((v_circ[emit_bool] - dv)/(np.sqrt(2)*(sigma_v))))
         # w *= cgm_transmission_fraction
 
         beta = get_beta_bouwens14(muv)
@@ -119,18 +119,51 @@ def get_lya_properties(halo_masses, muv, redshift, mode='mason'):
 
     elif mode == 'gaussian':
 
-        GAUS_PARAMS = (0, 500, 0, 300)
+        # gaussian parameters
+        GAUS_PARAMS = (0, 500, 100, 100)
+        # correlation coefficients
+        RHO = (0.0, 0.0, 0.0, 0.0) # muv-w, w-dv, w-fesc, dv-fesc
+        # RHO = (0.5, 0.5, 0.5, 0.5) # muv-w, w-dv, w-fesc, dv-fesc
+        # RHO = (0.5, 0.5, 0.5, 0.5) # muv-w, w-dv, w-fesc, dv-fesc
+
+        muv_mean = np.mean(muv)
+        muv_std = np.std(muv)
 
         v_circ = ((10*G*halo_masses*u.solMass*Planck18.H(redshift))**(1/3)).to('km/s').value
         # perturb v_circ
-        # v_circ *= np.random.normal(0, 1, len(halo_masses))
+        # v_circ *= np.random.normal(1.0, 0.5, len(halo_masses))
+        # sample W from a gaussian
         w = np.random.normal(GAUS_PARAMS[0], GAUS_PARAMS[1], len(halo_masses))
+        # introduce correlation with MUV
+        muv_w = (muv - muv_mean)*GAUS_PARAMS[1]/muv_std + GAUS_PARAMS[0]
+        w = RHO[0]*muv_w + (1 - RHO[0])*w
+        # sample dv from a gaussian
         dv = np.random.normal(GAUS_PARAMS[2], GAUS_PARAMS[3], len(halo_masses))
+        # introduce correlation with W
+        # w_dv = (w - GAUS_PARAMS[0])*GAUS_PARAMS[3]/GAUS_PARAMS[1] + GAUS_PARAMS[2]
+        # dv = RHO[1]*w_dv + (1 - RHO[1])*dv
+        # sigma_v = dv / 3
+        # introduce correlation with v_circ
+        v_circ_mean = np.mean(v_circ)
+        v_circ_std = np.std(v_circ)
+        dv_vcirc = (v_circ - v_circ_mean)*GAUS_PARAMS[3]/v_circ_std + GAUS_PARAMS[2]
+        dv = 0.5*dv_vcirc + (1 - 0.5)*dv
         sigma_v = dv / 3
+
         # blueward attenuation by CGM
         fesc = 0.5*(1 - erf((v_circ - dv)/(np.sqrt(2)*(sigma_v))))
+        # introduce correlation with dv
+        fesc_mean = np.mean(fesc)
+        fesc_std = np.std(fesc)
+        dv_fesc = (dv - GAUS_PARAMS[2])*fesc_std/GAUS_PARAMS[1] + fesc_mean
+        fesc = RHO[3]*dv_fesc + (1 - RHO[3])*fesc
+
         # fesc *= np.random.uniform(0, 1, len(halo_masses))
         w *= fesc
+
+        # adjust fesc to account for energy in blue peak
+        # blue_coeff = np.random.uniform(0, 0.5, len(w))
+        # fesc *= 1 - blue_coeff
 
         beta = get_beta_bouwens14(muv)
         lum_dens_uv = 10**(-0.4*(muv - 51.6))
@@ -161,8 +194,8 @@ if __name__ == "__main__":
     muv = muv[muv<=-16]
 
     # simulated lya properties
-    # halo_masses, muv, mab, dv, w, fesc = get_lya_properties(halo_masses, muv, redshift, mode='mason')
-    halo_masses, muv, mab, dv, w, fesc = get_lya_properties(halo_masses, muv, redshift, mode='gaussian')
+    halo_masses, muv, mab, dv, w, fesc = get_lya_properties(halo_masses, muv, redshift, mode='mason')
+    # halo_masses, muv, mab, dv, w, fesc = get_lya_properties(halo_masses, muv, redshift, mode='gaussian')
 
     # measured lya properties from https://arxiv.org/pdf/2402.06070
     MUV, MUV_err, z, ew_lya, ew_lya_err, dv_lya, dv_lya_err, \
@@ -170,6 +203,7 @@ if __name__ == "__main__":
 
     muv_space = np.linspace(-24, -16, 100)
     dv_space = np.linspace(0, 1000, 100)
+    dv_logspace = 10**np.linspace(0, 3, 100)
     w_space = 10**np.linspace(0, 3, 100)
     fesc_space = np.linspace(0, 1, 100)
 
@@ -206,7 +240,7 @@ if __name__ == "__main__":
                                        density=True)
     h_wdv, x_wdv, y_wdv = np.histogram2d(w, dv, bins=(w_space, dv_space), \
                                        density=True)
-    h_dvfesc, x_dvfesc, y_dvfesc = np.histogram2d(dv, fesc, bins=(dv_space, fesc_space), \
+    h_dvfesc, x_dvfesc, y_dvfesc = np.histogram2d(dv, fesc, bins=(dv_logspace, fesc_space), \
                                        density=True)
     h_wfesc, x_wfesc, y_wfesc = np.histogram2d(w, fesc, bins=(w_space, fesc_space), \
                                         density=True)
@@ -257,7 +291,7 @@ if __name__ == "__main__":
                                        density=True)
     h_wdv, x_wdv, y_wdv = np.histogram2d(w, dv, bins=(w_space, dv_space), \
                                        density=True)
-    h_dvfesc, x_dvfesc, y_dvfesc = np.histogram2d(dv, fesc, bins=(dv_space, fesc_space), \
+    h_dvfesc, x_dvfesc, y_dvfesc = np.histogram2d(dv, fesc, bins=(dv_logspace, fesc_space), \
                                        density=True)
     h_wfesc, x_wfesc, y_wfesc = np.histogram2d(w, fesc, bins=(w_space, fesc_space), \
                                         density=True)
@@ -307,7 +341,7 @@ if __name__ == "__main__":
                                        density=True)
     h_wdv, x_wdv, y_wdv = np.histogram2d(w, dv, bins=(w_space, dv_space), \
                                        density=True)
-    h_dvfesc, x_dvfesc, y_dvfesc = np.histogram2d(dv, fesc, bins=(dv_space, fesc_space), \
+    h_dvfesc, x_dvfesc, y_dvfesc = np.histogram2d(dv, fesc, bins=(dv_logspace, fesc_space), \
                                        density=True)
     h_wfesc, x_wfesc, y_wfesc = np.histogram2d(w, fesc, bins=(w_space, fesc_space), \
                                         density=True)
@@ -395,6 +429,10 @@ if __name__ == "__main__":
     axs[0,3].set_xscale('log')
     axs[1,3].set_xscale('log')
     axs[2,3].set_xscale('log')
+
+    axs[0,3].set_xlim(1e1, 1e3)
+    axs[1,3].set_xlim(1e1, 1e3)
+    axs[2,3].set_xlim(1e1, 1e3)
 
     axs[0,3].set_ylim(0, 1)
     axs[0,4].set_ylim(0, 1)
