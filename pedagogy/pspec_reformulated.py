@@ -29,10 +29,10 @@ def get_line_params(x, y, yerr):
         return np.sum(((m*x+b) - y)**2 / yerr**2)
 
     # Initial guess for slope and intercept
-    initial_guess = [-1, -2]
+    initial_guess = [2, -5]
 
     # Minimize the objective function
-    result = minimize(objective, initial_guess, bounds=[(-4, 0), (-5, 0)])
+    result = minimize(objective, initial_guess, bounds=[(0, 5), (-10, 5)])
     m, b  = result.x
 
     # Calculate residuals
@@ -115,6 +115,11 @@ if __name__ == "__main__":
     plt.rcParams["font.serif"] = ["Times New Roman"] + plt.rcParams["font.serif"]
     plt.rcParams.update({'font.size': 14})
     plt.style.use('dark_background')
+    import matplotlib as mpl
+    label_size = 20
+    font_size = 30
+    mpl.rcParams['xtick.labelsize'] = label_size 
+    mpl.rcParams['ytick.labelsize'] = label_size
 
     import argparse
 
@@ -127,7 +132,7 @@ if __name__ == "__main__":
 
     import h5py
 
-    with h5py.File('data/halo_fields/HaloField_4726d8c02a89e2cf56ccacd64f593423_r1.h5', 'r') as f:
+    with h5py.File('../data/halo_fields/HaloField_4726d8c02a89e2cf56ccacd64f593423_r1.h5', 'r') as f:
         halo_coords = f['HaloField']['halo_coords'][()]
         halo_masses = f['HaloField']['halo_masses'][()]
 
@@ -146,6 +151,7 @@ if __name__ == "__main__":
     for _x, _y, _z in zip(x_halo, y_halo, z_halo):
         box[int(_x), int(_y), int(_z)] += 1
 
+    box = box/np.mean(box) - 1
     ps, k, pvar = powerbox.get_power(box, boxlength=int(SIDE_LENGTH_MPC),\
                 log_bins=True, get_variance=True, ignore_zero_mode=True,\
                 vol_normalised_power=True)
@@ -169,125 +175,64 @@ if __name__ == "__main__":
         gamma_upper = gamma + 0.17
         gamma_lower = gamma - 0.17
 
-    gamma_up_err = gamma_upper - gamma
-    gamma_low_err = gamma - gamma_lower
-    r0_up_err = r0_upper - r0
-    r0_low_err = r0 - r0_lower
+    m_dat = gamma
+    h = 0.7
 
-    gamma_up_rel_err = gamma_up_err / gamma
-    gamma_low_rel_err = gamma_low_err / gamma
-    r0_up_rel_err = r0_up_err / r0
-    r0_low_rel_err = r0_low_err / r0
+    b_dat = h*np.log10((2/np.pi)*r0**gamma*special.gamma(2-gamma)*np.sin(np.pi*gamma/2))
 
-    gamma_up_special_err = special.gamma(gamma_upper) - special.gamma(gamma)
-    gamma_low_special_err = special.gamma(gamma) - special.gamma(gamma_lower)
-    r0_up_special_err = special.gamma(r0_upper) - special.gamma(r0)
-    r0_low_special_err = special.gamma(r0) - special.gamma(r0_lower)
-
-    slope_up_err = gamma_up_err
-    slope_low_err = gamma_low_err
-
-    slope = gamma - 1
-
-    intercept_up_err  = np.sqrt(gamma_up_rel_err**2 + (r0_up_rel_err/np.log(10)/np.log10(r0))**2)\
-        *gamma*(np.abs(np.log10(1j) - np.log10(r0))) + gamma_up_special_err/gamma/np.log(10)
-    intercept_low_err = np.sqrt(gamma_low_rel_err**2 + (r0_low_rel_err/np.log(10)/np.log10(r0))**2)\
-        *gamma*(np.abs(np.log10(1j) - np.log10(r0))) + gamma_low_special_err/gamma/np.log(10)
-
-    intercept = np.log10(np.abs(np.real(1j**gamma))*(np.pi/2)**(1/2)*r0**(-1*gamma) / special.gamma(gamma))
-
-    def best_fit(k):
-        return 10**(slope*np.log10(k) + intercept)
-
-    def best_fit_upper(k):
-        return 10**((slope)*np.log10(k) + intercept + intercept_up_err)
-
-    def best_fit_lower(k):
-        return 10**((slope)*np.log10(k) + intercept - intercept_low_err)
+    def data_line(k):
+        return 10**(m_dat*np.log10(k) + b_dat)
 
     k_linear = np.linspace(1.1*k.max(), 0.9*k.min(), 100)
 
     d2 = ps*k**3/(2*np.pi**2)
     d2_err = pvar*k**3/(2*np.pi**2)
-
     k_max = 2*np.pi / 10
-    m, b, m_err, b_err = get_line_params(np.log10(k[k<k_max]), np.log10(ps[k<k_max]), \
-                                        pvar[k<k_max]/(np.log10(ps[k<k_max])*np.log(10)))
 
-    gamma_fit = m + 3
-    # not positive about whether to multiply h70 here
-    r0_fit = 0.7*10**(-1*b/gamma_fit + np.real(np.log10(1j)) + \
-                  np.log10(np.pi/2)/2/gamma_fit - np.log10(special.gamma(gamma_fit))/gamma_fit)
-    
-    gamma_fit_err = m_err
-    r0_fit_err = r0_fit * np.sqrt((b_err/b)**2 + (gamma_fit_err/gamma_fit)**2)
-    
-    if gamma_fit > gamma:
-        gamma_err = np.sqrt(gamma_up_err**2 + gamma_fit_err**2)
-    elif gamma_fit < gamma:
-        gamma_err = np.sqrt(gamma_low_err**2 + gamma_fit_err**2)
-    if r0_fit > r0:
-        r0_err = np.sqrt(r0_up_err**2 + r0_fit_err**2)
-    elif r0_fit < r0:
-        r0_err = np.sqrt(r0_low_err**2 + r0_fit_err**2)
+    m, b, m_err, b_err = get_line_params(np.log10(k[k<k_max]), np.log10(d2[k<k_max]), \
+                                        d2_err[k<k_max]/(np.log10(d2[k<k_max])*np.log(10)))
 
-    chi_squared = (gamma_fit - gamma)**2 / gamma_err**2 + (r0_fit - r0)**2 / r0_err**2
-    std_dev = np.sqrt(chi_squared)
-    probability = 0.5*(special.erf(std_dev / 2**(1/2)) - special.erf(-1*std_dev / 2**(1/2)))
+    gamma_fit = m
+    r0_fit = ((np.pi*10**b)/(2*special.gamma(2-gamma_fit)*\
+                             np.sin(np.pi*gamma_fit/2)))**(1/gamma_fit)/h
+    
+    print(m, b)
+    print(gamma_fit, r0_fit)
+    print(gamma, r0)
+    # quit()
 
     fig, axs = plt.subplots(1, 1, figsize=(8, 8), constrained_layout=True)
 
-    axs.errorbar(k, d2, yerr=d2_err, fmt='o', color='cyan', label='This Work')
+    axs.errorbar(k, d2, yerr=d2_err, fmt='o', color='cyan', label='fiducial model')
 
-    axs.plot(k_linear, best_fit(k_linear)*k_linear/(2*np.pi**2), label='Umeda+24', color='white')
-    axs.plot(k_linear, 10**(m*np.log10(k_linear) + b)*k_linear**3/(2*np.pi**2), label='Best fit', color='white', linestyle='--')
+    axs.plot(k_linear, data_line(k_linear), label='Subaru', color='white')
+    axs.plot(k_linear, 10**(m*np.log10(k_linear) + b), label='best fit', color='white', linestyle='--')
 
     axs.axvline(2*np.pi/10, color='white', linestyle=':', label=r'$10$ Mpc')
 
     axs.set_xscale('log')
     axs.set_yscale('log')
     axs.set_xlim(k_linear[-1], k_linear[0])
-    axs.set_title(f'Power Spectrum at z={z}')
-    axs.set_xlabel(r'$k$ [Mpc$^{-1}$]')
-    axs.set_ylabel(r'$\Delta^2(k)$')
-    axs.legend()
+    # axs.set_title(f'Power Spectrum at z={z}')
+    axs.set_xlabel(r'$k$ [Mpc$^{-1}$]', fontsize=font_size)
+    axs.set_ylabel(r'$\Delta^2(k)$', fontsize=font_size)
+    axs.legend(fontsize=font_size)
 
-    r0_range_1, sigma1, r0_range_2, sigma2, r0_range_3, sigma3 \
-        = get_bounds(r0, r0_up_err, r0_low_err, gamma, gamma_up_err, gamma_low_err)
+    # r0_range_1, sigma1, r0_range_2, sigma2, r0_range_3, sigma3 \
+    #     = get_bounds(r0, r0_up_err, r0_low_err, gamma, gamma_up_err, gamma_low_err)
 
-    ax_pdf = axs.inset_axes([0.5, 0, 0.5, 0.4])
-    # ax_pdf.set_xticklabels([])
+    # ax_pdf = axs.inset_axes([0.5, 0, 0.5, 0.4])
+    # # ax_pdf.set_xticklabels([])
 
-    ax_pdf.plot(r0, gamma, 'x', color='cyan', markersize=10)
-    ax_pdf.plot(r0_fit, gamma_fit, 'x', color='white', markersize=10)
+    # ax_pdf.plot(r0, gamma, 'x', color='cyan', markersize=10)
+    # ax_pdf.plot(r0_fit, gamma_fit, 'x', color='white', markersize=10)
 
-    ax_pdf.plot(r0_range_1, sigma1, color='cyan', linestyle='solid', linewidth=2)
-    ax_pdf.plot(r0_range_2, sigma2, color='cyan', linestyle='dashed', linewidth=2)
-    ax_pdf.plot(r0_range_3, sigma3, color='cyan', linestyle='dotted', linewidth=2)
+    # ax_pdf.plot(r0_range_1, sigma1, color='cyan', linestyle='solid', linewidth=2)
+    # ax_pdf.plot(r0_range_2, sigma2, color='cyan', linestyle='dashed', linewidth=2)
+    # ax_pdf.plot(r0_range_3, sigma3, color='cyan', linestyle='dotted', linewidth=2)
 
-    ax_pdf.set_ylabel(r'$\gamma$', fontsize=14)
-    ax_pdf.tick_params(top=True, labeltop=True, bottom=False, labelbottom=False)
-    ax_pdf.set_title(r'$r_0$ [h$_{70}^{-1}$ Mpc]', fontsize=14)
-
-    # ax_pdf.plot(get_intercept(r0, gamma), get_slope(gamma), 'x', color='cyan', markersize=10)
-    # ax_pdf.plot(get_intercept(r0_fit, gamma_fit), get_slope(gamma_fit), 'x', color='white', markersize=10)
-
-    # this turns out to be useless, revert to the original
-    # intercept1 = np.concatenate([get_intercept(r0_range_1, sigma1), get_intercept(r0_range_1, sigma1)[0:2]])
-    # intercept2 = np.concatenate([get_intercept(r0_range_2, sigma2), get_intercept(r0_range_2, sigma2)[0:2]])
-    # intercept3 = np.concatenate([get_intercept(r0_range_3, sigma3), get_intercept(r0_range_3, sigma3)[0:2]])
-    # sigma1 = np.concatenate([get_slope(sigma1), get_slope(sigma1)[0:2]])
-    # sigma2 = np.concatenate([get_slope(sigma2), get_slope(sigma2)[0:2]])
-    # sigma3 = np.concatenate([get_slope(sigma3), get_slope(sigma3)[0:2]])
-
-    # ax_pdf.plot(intercept1, sigma1, color='cyan', linestyle='solid', markersize=10)
-    # ax_pdf.plot(intercept2, sigma2, color='cyan', linestyle='dashed', markersize=10)
-    # ax_pdf.plot(intercept3, sigma3, color='cyan', linestyle='dotted', markersize=10)
-
-    # ax_pdf.plot(get_intercept(0, sigma1), get_slope(sigma1), '--', color='cyan', markersize=10)
-
-    # ax_pdf.set_ylabel(r'$\gamma-1$', fontsize=14)
+    # ax_pdf.set_ylabel(r'$\gamma$', fontsize=font_size)
     # ax_pdf.tick_params(top=True, labeltop=True, bottom=False, labelbottom=False)
-    # ax_pdf.set_title(r'$\log_{10}k_0$ [Mpc$^{-1}$]', fontsize=14)
+    # ax_pdf.set_title(r'$r_0$ [h$_{70}^{-1}$ Mpc]', fontsize=font_size)
 
     plt.show()

@@ -34,14 +34,14 @@ if __name__ == "__main__":
     plt.rcParams.update(rc) 
     plt.rcParams["font.serif"] = ["Times New Roman"] + plt.rcParams["font.serif"]
     plt.rcParams.update({'font.size': 14})
-    presentation = False
-    if presentation == True:
-        plt.style.use('dark_background')
-        linecolor = 'cyan'
-        datacolor = 'cyan'
-    else:
-        linecolor = 'red'
-        datacolor = 'black'
+    plt.style.use('dark_background')
+    import matplotlib as mpl
+    label_size = 20
+    font_size = 30
+    mpl.rcParams['xtick.labelsize'] = label_size 
+    mpl.rcParams['ytick.labelsize'] = label_size
+    linecolor = 'orange'
+    datacolor = 'red'
 
     # measured lya properties from https://arxiv.org/pdf/2402.06070
     MUV, MUV_err, z, ew_lya, ew_lya_err, dv_lya, dv_lya_err, \
@@ -60,15 +60,6 @@ if __name__ == "__main__":
     print('logW(dV)', m, b)
     residuals = np.abs(np.log10(ew_lya) - linear_func([m, b], dv_lya))
     print('+/-', np.mean(residuals))
-    # print(cov)
-    # plot the data
-    if presentation:
-        plt.errorbar(dv_lya, np.log10(ew_lya), xerr=dv_lya_err, yerr=ew_logerr, fmt='o', color='cyan')
-        plt.plot(dv_lya, linear_func([m, b], dv_lya), color='cyan', label='TANG LAEs')
-        plt.xlabel(r'$\Delta v_{\rm Ly\alpha}$')
-        plt.ylabel(r'$W_{\rm Ly\alpha}$')
-        plt.show()
-
 
     # get muv dv relation
     model = odr.Model(linear_func)
@@ -83,14 +74,6 @@ if __name__ == "__main__":
     residuals = np.abs(dv_lya - linear_func([m, b], MUV))
     print('+/-', np.mean(residuals))
     # print(covar)
-
-    # plot the data
-    if presentation:
-        plt.errorbar(MUV, dv_lya, xerr=MUV_err, yerr=dv_lya_err, fmt='o', color='cyan')
-        plt.plot(MUV, linear_func([m, b], MUV), color='cyan', label='TANG LAEs')
-        plt.xlabel(r'$M_{\rm UV}$')
-        plt.ylabel(r'$\log\Delta v_{\rm Ly\alpha}$')
-        plt.show()
 
     # compute theoretical maximum LyA emission
     lum_dens_uv = 10**(-0.4*(MUV - 51.6))
@@ -122,46 +105,36 @@ if __name__ == "__main__":
     std = np.std(lum_ha/sfr)
     print('std', std)
 
-    if presentation:
-        # plot the data
-        plt.errorbar(sfr, lum_ha, xerr=sfr_err, yerr=lum_ha_err, fmt='o', color='cyan')
-        plt.plot(sfr, linear_func_b0([m], sfr), color='cyan', label='TANG LAEs')
-        plt.xlabel(r'SFR')
-        plt.ylabel(r'$L_{\rm H\alpha}$')
-        plt.show()
+
+    fig, axs = plt.subplots(1, 3, figsize=(18, 6), constrained_layout=True)
+
+    # plot the data
+    dv_lya_space = np.linspace(0, 1000, 100)
+    axs[0].errorbar(dv_lya, np.log10(ew_lya), xerr=dv_lya_err, yerr=ew_logerr, fmt='o', markersize=10, capsize=5, color=datacolor)
+    axs[0].plot(dv_lya_space, linear_func([m1, b1], dv_lya_space), color=linecolor)
+    axs[0].set_xlabel(r'$\Delta v$ [km s$^{-1}$]', fontsize=font_size)
+    axs[0].set_ylabel(r'$\log_{10}{\rm W}_{\rm emerg}$ [$\AA$]', fontsize=font_size)
+    axs[0].set_xlim(0, 800)
+    axs[0].set_ylim(0.5, 3)
+
+    # plot the data
+    muv_space = np.linspace(-22, -16.5, 100)
+    axs[1].errorbar(MUV, dv_lya, xerr=MUV_err, yerr=dv_lya_err, fmt='o', markersize=10, capsize=5, color=datacolor)
+    axs[1].plot(muv_space, linear_func([m2, b2], muv_space), color=linecolor, label='TANG LAEs')
+    axs[1].set_xlabel(r'${\rm M}_{\rm UV}$', fontsize=font_size)
+    axs[1].set_ylabel(r'$\Delta v$ [km s$^{-1}$]', fontsize=font_size)
+    axs[1].set_xlim(-22, -16.5)
+
+    # plot the data
+    sfr_space = np.linspace(0, 18, 100)
+    axs[2].errorbar(sfr, lum_ha/1e42, xerr=sfr_err, yerr=lum_ha_err/1e42, fmt='o', markersize=10, capsize=5, color=datacolor, label='Tang et al. (2024)')
+    axs[2].plot(sfr_space, linear_func_b0([m3], sfr_space)/1e42, color=linecolor, label='best fit')
+    axs[2].plot(sfr_space, sfr_space*1.27e41/1e42, linestyle='--', color='orange', label='Kennicut (1998)')
+    axs[2].set_xlabel(r'SFR [M$_{\odot}$ yr$^{-1}$]', fontsize=font_size)
+    axs[2].set_ylabel(r'$L_{\rm H\alpha}$ [$10^{42}$ erg s$^{-1}$]', fontsize=font_size)
+    axs[2].set_xlim(0, 6)
+    axs[2].set_ylim(0, 5)
+
+    axs[2].legend(fontsize=18)
     
-    if not presentation:
-
-        fig, axs = plt.subplots(3, 1, figsize=(4, 10), constrained_layout=True)
-
-        # plot the data
-        dv_lya_space = np.linspace(0, 1000, 100)
-        axs[0].errorbar(dv_lya, np.log10(ew_lya), xerr=dv_lya_err, yerr=ew_logerr, fmt='o', color=datacolor)
-        axs[0].plot(dv_lya_space, linear_func([m1, b1], dv_lya_space), color=linecolor)
-        axs[0].set_xlabel(r'$\Delta v$ [km s$^{-1}$]')
-        axs[0].set_ylabel(r'$\log_{10}W_{\rm emerg}$ [$\AA$]')
-        axs[0].set_xlim(0, 800)
-        axs[0].set_ylim(0.5, 3)
-
-        # plot the data
-        muv_space = np.linspace(-22, -16.5, 100)
-        axs[1].errorbar(MUV, dv_lya, xerr=MUV_err, yerr=dv_lya_err, fmt='o', color=datacolor)
-        axs[1].plot(muv_space, linear_func([m2, b2], muv_space), color=linecolor, label='TANG LAEs')
-        axs[1].set_xlabel(r'$M_{\rm UV}$')
-        axs[1].set_ylabel(r'$\Delta v$ [km s$^{-1}$]')
-        axs[1].set_xlim(-22, -16.5)
-
-        # plot the data
-        sfr_space = np.linspace(0, 18, 100)
-        axs[2].errorbar(sfr, lum_ha/1e42, xerr=sfr_err, yerr=lum_ha_err/1e42, fmt='o', color=datacolor, label='Tang et al. (2024)')
-        axs[2].plot(sfr_space, linear_func_b0([m3], sfr_space)/1e42, color=linecolor, label='best fit')
-        axs[2].plot(sfr_space, sfr_space*1.27e41/1e42, color='blue', label='Kennicut (1998)')
-        axs[2].set_xlabel(r'SFR [M$_{\odot}$ yr$^{-1}$]')
-        axs[2].set_ylabel(r'$L_{\rm H\alpha}$ [$10^{42}$ erg s$^{-1}$]')
-        axs[2].set_xlim(0, 6)
-        axs[2].set_ylim(0, 5)
-
-        axs[2].legend()
-     
-        plt.show()
-        # plt.savefig('/mnt/c/Users/sgagn/OneDrive/Documents/andrei/tau_igm/plots/t24_props.pdf')
+    plt.show()

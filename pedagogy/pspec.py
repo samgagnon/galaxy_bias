@@ -115,6 +115,11 @@ if __name__ == "__main__":
     plt.rcParams["font.serif"] = ["Times New Roman"] + plt.rcParams["font.serif"]
     plt.rcParams.update({'font.size': 14})
     plt.style.use('dark_background')
+    import matplotlib as mpl
+    label_size = 20
+    font_size = 30
+    mpl.rcParams['xtick.labelsize'] = label_size 
+    mpl.rcParams['ytick.labelsize'] = label_size
 
     import argparse
 
@@ -127,7 +132,7 @@ if __name__ == "__main__":
 
     import h5py
 
-    with h5py.File('data/halo_fields/HaloField_4726d8c02a89e2cf56ccacd64f593423_r1.h5', 'r') as f:
+    with h5py.File('../data/halo_fields/HaloField_4726d8c02a89e2cf56ccacd64f593423_r1.h5', 'r') as f:
         halo_coords = f['HaloField']['halo_coords'][()]
         halo_masses = f['HaloField']['halo_masses'][()]
 
@@ -237,20 +242,20 @@ if __name__ == "__main__":
 
     fig, axs = plt.subplots(1, 1, figsize=(8, 8), constrained_layout=True)
 
-    axs.errorbar(k, d2, yerr=d2_err, fmt='o', color='cyan', label='This Work')
+    axs.errorbar(k, d2, yerr=d2_err, fmt='o', color='cyan', label='fiducial model')
 
-    axs.plot(k_linear, best_fit(k_linear)*k_linear/(2*np.pi**2), label='Umeda+24', color='white')
-    axs.plot(k_linear, 10**(m*np.log10(k_linear) + b)*k_linear**3/(2*np.pi**2), label='Best fit', color='white', linestyle='--')
+    axs.plot(k_linear, best_fit(k_linear)*k_linear/(2*np.pi**2), label='Subaru', color='white')
+    axs.plot(k_linear, 10**(m*np.log10(k_linear) + b)*k_linear**3/(2*np.pi**2), label='best fit', color='white', linestyle='--')
 
     axs.axvline(2*np.pi/10, color='white', linestyle=':', label=r'$10$ Mpc')
 
     axs.set_xscale('log')
     axs.set_yscale('log')
     axs.set_xlim(k_linear[-1], k_linear[0])
-    axs.set_title(f'Power Spectrum at z={z}')
-    axs.set_xlabel(r'$k$ [Mpc$^{-1}$]')
-    axs.set_ylabel(r'$\Delta^2(k)$')
-    axs.legend()
+    # axs.set_title(f'Power Spectrum at z={z}')
+    axs.set_xlabel(r'$k$ [Mpc$^{-1}$]', fontsize=font_size)
+    axs.set_ylabel(r'$\Delta^2(k)$', fontsize=font_size)
+    axs.legend(fontsize=font_size)
 
     r0_range_1, sigma1, r0_range_2, sigma2, r0_range_3, sigma3 \
         = get_bounds(r0, r0_up_err, r0_low_err, gamma, gamma_up_err, gamma_low_err)
@@ -265,9 +270,9 @@ if __name__ == "__main__":
     ax_pdf.plot(r0_range_2, sigma2, color='cyan', linestyle='dashed', linewidth=2)
     ax_pdf.plot(r0_range_3, sigma3, color='cyan', linestyle='dotted', linewidth=2)
 
-    ax_pdf.set_ylabel(r'$\gamma$', fontsize=14)
+    ax_pdf.set_ylabel(r'$\gamma$', fontsize=font_size)
     ax_pdf.tick_params(top=True, labeltop=True, bottom=False, labelbottom=False)
-    ax_pdf.set_title(r'$r_0$ [h$_{70}^{-1}$ Mpc]', fontsize=14)
+    ax_pdf.set_title(r'$r_0$ [h$_{70}^{-1}$ Mpc]', fontsize=font_size)
 
     # ax_pdf.plot(get_intercept(r0, gamma), get_slope(gamma), 'x', color='cyan', markersize=10)
     # ax_pdf.plot(get_intercept(r0_fit, gamma_fit), get_slope(gamma_fit), 'x', color='white', markersize=10)
@@ -286,8 +291,8 @@ if __name__ == "__main__":
 
     # ax_pdf.plot(get_intercept(0, sigma1), get_slope(sigma1), '--', color='cyan', markersize=10)
 
-    # ax_pdf.set_ylabel(r'$\gamma-1$', fontsize=14)
+    # ax_pdf.set_ylabel(r'$\gamma-1$', fontsize=font_size)
     # ax_pdf.tick_params(top=True, labeltop=True, bottom=False, labelbottom=False)
-    # ax_pdf.set_title(r'$\log_{10}k_0$ [Mpc$^{-1}$]', fontsize=14)
+    # ax_pdf.set_title(r'$\log_{10}k_0$ [Mpc$^{-1}$]', fontsize=font_size)
 
     plt.show()

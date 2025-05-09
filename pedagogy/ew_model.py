@@ -233,49 +233,6 @@ def get_lya_properties(halo_masses, muv, redshift, mode='mason'):
 
     return halo_masses, muv, mab, fha, dv, w, fesc
 
-def get_lya_properties_theta(theta):
-
-
-    a_w, a_v, a_ha_mean, b_w_mean, b_v_mean,\
-        sigma_ha, sigma_w, sigma_v = theta
-    
-    NSAMPLES = len(muv)
-
-    beta_factor = (0.959**(muv + 19.5))
-
-    lum_flux_factor = 4*np.pi*(Planck18.luminosity_distance(redshift).to('cm').value)**2
-
-    # three random variables and two fixed slopes
-    a_ha = np.random.normal(a_ha_mean, sigma_ha, NSAMPLES)
-    b_w = np.random.normal(b_w_mean, sigma_w, NSAMPLES)
-    b_v = np.random.normal(b_v_mean, sigma_v, NSAMPLES)
-
-    # compute theoretical maximum LyA emission
-    lum_dens_uv = 10**(-0.4*(muv - 51.6))
-    nu_uv = (c/(1500*u.Angstrom)).to('Hz').value
-    kappa_uv = 1.15e-28
-    sfr = lum_dens_uv*kappa_uv
-    l_lya = 1215.67
-    fesc_prefactor = nu_uv/(11.5*kappa_uv*l_lya)
-    w_intr_prefactor = 11.5*kappa_uv*l_lya/nu_uv
-
-    dv = np.abs(a_v*muv + b_v)
-
-    fesc = fesc_prefactor*((1.04*10**(a_w*a_v))**(muv + 19.5))*\
-            (10**(a_w*(b_v - 19.5*a_v) + b_w))/a_ha
-    
-    fesc[fesc>1] = 1
-    w_intr = w_intr_prefactor * a_ha * beta_factor
-    w = w_intr*fesc
-
-    lum_dens_alpha = 0.989 * (w / l_lya) * lum_dens_uv * beta_factor
-    intensity = lum_dens_alpha/lum_flux_factor
-    mab = -2.5 * np.log10(intensity) - 48.6
-
-    fha = a_ha*sfr/lum_flux_factor
-
-    return halo_masses, muv, mab, fha, dv, w, fesc
-
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     rc = {"font.family" : "serif", 
@@ -283,6 +240,11 @@ if __name__ == "__main__":
     plt.rcParams.update(rc) 
     plt.rcParams["font.serif"] = ["Times New Roman"] + plt.rcParams["font.serif"]
     plt.rcParams.update({'font.size': 14})
+    import matplotlib as mpl
+    label_size = 20
+    font_size = 30
+    mpl.rcParams['xtick.labelsize'] = label_size 
+    mpl.rcParams['ytick.labelsize'] = label_size 
     # presentation = False
     presentation = True
     # points_or_hist = 'points'
@@ -319,8 +281,6 @@ if __name__ == "__main__":
     halo_masses, muv, mab, fha, dv, w, fesc = get_lya_properties(halo_masses, muv, redshift, mode='mason')
     # halo_masses, muv, mab, fha, dv, w, fesc = get_lya_properties(halo_masses, muv, redshift, mode='gaussian')
     # halo_masses, muv, mab, fha, dv, w, fesc = get_lya_properties(halo_masses, muv, redshift, mode='fesc')
-    # theta = np.load('../data/theta.npy')
-    # halo_masses, muv, mab, fha, dv, w, fesc = get_lya_properties_theta(theta)
 
     # measured lya properties from https://arxiv.org/pdf/2402.06070
     MUV, MUV_err, z, ew_lya, ew_lya_err, dv_lya, dv_lya_err, \
@@ -340,12 +300,7 @@ if __name__ == "__main__":
     _fesc = np.copy(fesc)
     _fha = np.copy(fha)
 
-    # save muv-w without bias
-    h_mw, x_mw, y_mw = np.histogram2d(muv, w, bins=(muv_space, w_space), \
-                                       density=True)
-    np.save('../data/model_hist/muv_w.npy', h_mw.T)
-
-    fig, axs = plt.subplots(3, 5, figsize=(18, 10), constrained_layout=True)
+    fig, axs = plt.subplots(2, 5, figsize=(18, 8), constrained_layout=True)
 
     # ROW ONE: MUSE-Wide
 
@@ -436,51 +391,6 @@ if __name__ == "__main__":
     np.save('../data/model_hist/model13.npy', h_dvfesc.T)
     np.save('../data/model_hist/model14.npy', h_wfesc.T)
 
-    # THIRD ROW: DEIMOS
-
-    # apply flux completeness limit for each sample
-    flux_limit_draw = np.random.normal(loc=2e-18, scale=2e-18/5, size=len(_muv))
-    flux_limit_draw[flux_limit_draw > 2e-18] = 2e-18
-    mab_lim = -2.5 * np.log10(flux_limit_draw/nu_lya) - 48.6
-
-    limit_b = -18.2 - Planck18.distmod(5.0).value + Planck18.distmod(3.8).value
-    limit_v = -18.8 - Planck18.distmod(5.0).value + Planck18.distmod(5.0).value
-    limit_i = -19.1 - Planck18.distmod(5.0).value + Planck18.distmod(5.9).value
-    limit_mean = np.mean([limit_b, limit_v, limit_i])
-
-    muv_limit_draw = -2.5*np.log10(np.random.normal(loc=10**(-0.4*limit_mean), \
-                                scale=10**(-0.4*limit_mean)/5, size=len(_muv)))
-
-    halo_masses = _halo_masses[(_mab<mab_lim)*(_muv<muv_limit_draw)*(_fha>fha_draw)*(_w>w_lim_draw)]
-    dv = _dv[(_mab<mab_lim)*(_muv<muv_limit_draw)*(_fha>fha_draw)*(_w>w_lim_draw)]
-    fesc = _fesc[(_mab<mab_lim)*(_muv<muv_limit_draw)*(_fha>fha_draw)*(_w>w_lim_draw)]
-    w = _w[(_mab<mab_lim)*(_muv<muv_limit_draw)*(_fha>fha_draw)*(_w>w_lim_draw)]
-    muv = _muv[(_mab<mab_lim)*(_muv<muv_limit_draw)*(_fha>fha_draw)*(_w>w_lim_draw)]
-
-    # create 2d histogram of muv, dv
-    h_mdv, x_mdv, y_mdv = np.histogram2d(muv, dv, bins=(muv_space, dv_space), \
-                                       density=True)
-    h_mw, x_mw, y_mw = np.histogram2d(muv, w, bins=(muv_space, w_space), \
-                                       density=True)
-    h_wdv, x_wdv, y_wdv = np.histogram2d(w, dv, bins=(w_space, dv_space), \
-                                       density=True)
-    h_dvfesc, x_dvfesc, y_dvfesc = np.histogram2d(dv, fesc, bins=(dv_logspace, fesc_space), \
-                                       density=True)
-    h_wfesc, x_wfesc, y_wfesc = np.histogram2d(w, fesc, bins=(w_space, fesc_space), \
-                                        density=True)
-
-    axs[2,0].pcolormesh(x_mdv, y_mdv, np.log10(h_mdv.T), cmap=cmap, rasterized=True)
-    axs[2,1].pcolormesh(x_mw, y_mw, np.log10(h_mw.T), cmap=cmap, rasterized=True)
-    axs[2,2].pcolormesh(x_wdv, y_wdv, np.log10(h_wdv.T), cmap=cmap, rasterized=True)
-    axs[2,3].pcolormesh(x_dvfesc, y_dvfesc, np.log10(h_dvfesc.T), cmap=cmap, rasterized=True)
-    axs[2,4].pcolormesh(x_wfesc, y_wfesc, np.log10(h_wfesc.T), cmap=cmap, rasterized=True)
-
-    np.save('../data/model_hist/model20.npy', h_mdv.T)
-    np.save('../data/model_hist/model21.npy', h_mw.T)
-    np.save('../data/model_hist/model22.npy', h_wdv.T)
-    np.save('../data/model_hist/model23.npy', h_dvfesc.T)
-    np.save('../data/model_hist/model24.npy', h_wfesc.T)
-
     if points_or_hist == 'points':
         # first row: MUSE-Wide
         axs[0,0].errorbar(MUV[ID==0], dv_lya[ID==0], xerr=MUV_err[ID==0], yerr=dv_lya_err[ID==0], fmt='o', color=datacolor)
@@ -494,22 +404,6 @@ if __name__ == "__main__":
         axs[1,2].errorbar(ew_lya[ID==1], dv_lya[ID==1], xerr=ew_lya_err[ID==1], yerr=dv_lya_err[ID==1], fmt='o', color=datacolor)
         axs[1,3].errorbar(dv_lya[ID==1], fescB[ID==1], xerr=dv_lya_err[ID==1], yerr=fescB_err[ID==1], fmt='o', color=datacolor)
         axs[1,4].errorbar(ew_lya[ID==1], fescB[ID==1], xerr=ew_lya_err[ID==1], yerr=fescB_err[ID==1], fmt='o', color=datacolor)
-        # third row: DEIMOS
-        axs[2,0].errorbar(MUV[ID==2], dv_lya[ID==2], xerr=MUV_err[ID==2], yerr=dv_lya_err[ID==2], fmt='o', color=datacolor)
-        axs[2,0].errorbar(MUV[ID==3], dv_lya[ID==3], xerr=MUV_err[ID==3], yerr=dv_lya_err[ID==3], fmt='o', color=datacolor)
-        axs[2,0].errorbar(MUV[ID==4], dv_lya[ID==4], xerr=MUV_err[ID==4], yerr=dv_lya_err[ID==4], fmt='o', color=datacolor)
-        axs[2,1].errorbar(MUV[ID==2], ew_lya[ID==2], xerr=MUV_err[ID==2], yerr=ew_lya_err[ID==2], fmt='o', color=datacolor, label='DEIMOS-V')
-        axs[2,1].errorbar(MUV[ID==3], ew_lya[ID==3], xerr=MUV_err[ID==3], yerr=ew_lya_err[ID==3], fmt='o', color=datacolor, label='DEIMOS-i')
-        axs[2,1].errorbar(MUV[ID==4], ew_lya[ID==4], xerr=MUV_err[ID==4], yerr=ew_lya_err[ID==4], fmt='o', color=datacolor, label='DEIMOS-B')
-        axs[2,2].errorbar(ew_lya[ID==2], dv_lya[ID==2], xerr=ew_lya_err[ID==2], yerr=dv_lya_err[ID==2], fmt='o', color=datacolor)
-        axs[2,2].errorbar(ew_lya[ID==3], dv_lya[ID==3], xerr=ew_lya_err[ID==3], yerr=dv_lya_err[ID==3], fmt='o', color=datacolor)
-        axs[2,2].errorbar(ew_lya[ID==4], dv_lya[ID==4], xerr=ew_lya_err[ID==4], yerr=dv_lya_err[ID==4], fmt='o', color=datacolor)
-        axs[2,3].errorbar(dv_lya[ID==2], fescB[ID==2], xerr=dv_lya_err[ID==2], yerr=fescB_err[ID==2], fmt='o', color=datacolor)
-        axs[2,3].errorbar(dv_lya[ID==3], fescB[ID==3], xerr=dv_lya_err[ID==3], yerr=fescB_err[ID==3], fmt='o', color=datacolor)
-        axs[2,3].errorbar(dv_lya[ID==4], fescB[ID==4], xerr=dv_lya_err[ID==4], yerr=fescB_err[ID==4], fmt='o', color=datacolor)
-        axs[2,4].errorbar(ew_lya[ID==2], fescB[ID==2], xerr=ew_lya_err[ID==2], yerr=fescB_err[ID==2], fmt='o', color=datacolor)
-        axs[2,4].errorbar(ew_lya[ID==3], fescB[ID==3], xerr=ew_lya_err[ID==3], yerr=fescB_err[ID==3], fmt='o', color=datacolor)
-        axs[2,4].errorbar(ew_lya[ID==4], fescB[ID==4], xerr=ew_lya_err[ID==4], yerr=fescB_err[ID==4], fmt='o', color=datacolor)
     elif points_or_hist == 'hist':
         hist00 = np.load('../data/muse_hist/hist00.npy')
         axs[0,0].pcolormesh(x_mdv, y_mdv, hist00, cmap=hist_cmap, rasterized=True, alpha=ALPHA)
@@ -532,54 +426,29 @@ if __name__ == "__main__":
         hist14 = np.load('../data/muse_hist/hist14.npy')
         axs[1,4].pcolormesh(x_wfesc, y_wfesc, hist14, cmap=hist_cmap, rasterized=True, alpha=ALPHA)
         hist20 = np.load('../data/muse_hist/hist20.npy')
-        axs[2,0].pcolormesh(x_mdv, y_mdv, hist20, cmap=hist_cmap, rasterized=True, alpha=ALPHA)
-        hist21 = np.load('../data/muse_hist/hist21.npy')
-        axs[2,1].pcolormesh(x_mw, y_mw, hist21, cmap=hist_cmap, rasterized=True, alpha=ALPHA)
-        hist22 = np.load('../data/muse_hist/hist22.npy')
-        axs[2,2].pcolormesh(x_wdv, y_wdv, hist22, cmap=hist_cmap, rasterized=True, alpha=ALPHA)
-        hist23 = np.load('../data/muse_hist/hist23.npy')
-        axs[2,3].pcolormesh(x_dvfesc, y_dvfesc, hist23, cmap=hist_cmap, rasterized=True, alpha=ALPHA)
-        hist24 = np.load('../data/muse_hist/hist24.npy')
-        axs[2,4].pcolormesh(x_wfesc, y_wfesc, hist24, cmap=hist_cmap, rasterized=True, alpha=ALPHA)
 
-    axs[0,0].text(-23.5, 800, 'MUSE-Wide', color=textcolor)
-    axs[1,0].text(-23.5, 800, 'MUSE-Deep', color=textcolor)
-    axs[2,0].text(-23.5, 800, 'DEIMOS', color=textcolor)
+    axs[0,0].text(-23.5, 800, 'MUSE-Wide', color=textcolor, fontsize=20)
+    axs[1,0].text(-23.5, 800, 'MUSE-Deep', color=textcolor, fontsize=20)
 
-    axs[0,0].set_xlabel(r'$M_{\rm UV}$')
-    axs[0,0].set_ylabel(r'$\Delta v$ [km s$^{-1}$]')
-    axs[1,0].set_xlabel(r'$M_{\rm UV}$')
-    axs[1,0].set_ylabel(r'$\Delta v$ [km s$^{-1}$]')
-    axs[2,0].set_xlabel(r'$M_{\rm UV}$')
-    axs[2,0].set_ylabel(r'$\Delta v$ [km s$^{-1}$]')
+    axs[0,0].set_ylabel(r'$\Delta v$ [km s$^{-1}$]', fontsize=font_size)
+    axs[1,0].set_xlabel(r'$M_{\rm UV}$', fontsize=font_size)
+    axs[1,0].set_ylabel(r'$\Delta v$ [km s$^{-1}$]', fontsize=font_size)
 
-    axs[0,1].set_xlabel(r'$M_{\rm UV}$')
-    axs[0,1].set_ylabel(r'W$_{\rm emerg}$ [$\AA$]')
-    axs[1,1].set_xlabel(r'$M_{\rm UV}$')
-    axs[1,1].set_ylabel(r'W$_{\rm emerg}$ [$\AA$]')
-    axs[2,1].set_xlabel(r'$M_{\rm UV}$')
-    axs[2,1].set_ylabel(r'W$_{\rm emerg}$ [$\AA$]')
+    axs[0,1].set_ylabel(r'W$_{\rm emerg}$ [$\AA$]', fontsize=font_size)
+    axs[1,1].set_xlabel(r'$M_{\rm UV}$', fontsize=font_size)
+    axs[1,1].set_ylabel(r'W$_{\rm emerg}$ [$\AA$]', fontsize=font_size)
 
-    axs[0,2].set_xlabel(r'W$_{\rm emerg}$ [$\AA$]')
-    axs[0,2].set_ylabel(r'$\Delta v$ [km s$^{-1}$]')
-    axs[1,2].set_xlabel(r'W$_{\rm emerg}$ [$\AA$]')
-    axs[1,2].set_ylabel(r'$\Delta v$ [km s$^{-1}$]')
-    axs[2,2].set_xlabel(r'W$_{\rm emerg}$ [$\AA$]')
-    axs[2,2].set_ylabel(r'$\Delta v$ [km s$^{-1}$]')
+    axs[0,2].set_ylabel(r'$\Delta v$ [km s$^{-1}$]', fontsize=font_size)
+    axs[1,2].set_xlabel(r'W$_{\rm emerg}$ [$\AA$]', fontsize=font_size)
+    axs[1,2].set_ylabel(r'$\Delta v$ [km s$^{-1}$]', fontsize=font_size)
 
-    axs[0,3].set_xlabel(r'$\Delta v$ [km s$^{-1}$]')
-    axs[0,3].set_ylabel(r'$f_{\rm esc}$')
-    axs[1,3].set_xlabel(r'$\Delta v$ [km s$^{-1}$]')
-    axs[1,3].set_ylabel(r'$f_{\rm esc}$')
-    axs[2,3].set_xlabel(r'$\Delta v$ [km s$^{-1}$]')
-    axs[2,3].set_ylabel(r'$f_{\rm esc}$')
+    axs[0,3].set_ylabel(r'$f_{\rm esc}$', fontsize=font_size)
+    axs[1,3].set_xlabel(r'$\Delta v$ [km s$^{-1}$]', fontsize=font_size)
+    axs[1,3].set_ylabel(r'$f_{\rm esc}$', fontsize=font_size)
 
-    axs[0,4].set_xlabel(r'W$_{\rm emerg}$ [$\AA$]')
-    axs[0,4].set_ylabel(r'$f_{\rm esc}$')
-    axs[1,4].set_xlabel(r'W$_{\rm emerg}$ [$\AA$]')
-    axs[1,4].set_ylabel(r'$f_{\rm esc}$')
-    axs[2,4].set_xlabel(r'W$_{\rm emerg}$ [$\AA$]')
-    axs[2,4].set_ylabel(r'$f_{\rm esc}$')
+    axs[0,4].set_ylabel(r'$f_{\rm esc}$', fontsize=font_size)
+    axs[1,4].set_xlabel(r'W$_{\rm emerg}$ [$\AA$]', fontsize=font_size)
+    axs[1,4].set_ylabel(r'$f_{\rm esc}$', fontsize=font_size)
 
     axs[0,1].set_yscale('log')
     axs[0,2].set_xscale('log')
@@ -587,30 +456,20 @@ if __name__ == "__main__":
     axs[1,1].set_yscale('log')
     axs[1,2].set_xscale('log')
     axs[1,4].set_xscale('log')
-    axs[2,1].set_yscale('log')
-    axs[2,2].set_xscale('log')
-    axs[2,4].set_xscale('log')
     
     axs[0,3].set_xscale('log')
     axs[1,3].set_xscale('log')
-    axs[2,3].set_xscale('log')
 
     axs[0,3].set_xlim(1e1, 1e3)
     axs[1,3].set_xlim(1e1, 1e3)
-    axs[2,3].set_xlim(1e1, 1e3)
 
     axs[0,3].set_ylim(0, 1)
     axs[0,4].set_ylim(0, 1)
     axs[1,3].set_ylim(0, 1)
     axs[1,4].set_ylim(0, 1)
-    axs[2,3].set_ylim(0, 1)
-    axs[2,4].set_ylim(0, 1)
 
     axs[0,0].set_ylim(0, 1000)
     axs[0,1].set_ylim(0, 1000)
     axs[0,2].set_ylim(0, 1000)
 
-    if presentation:
-        plt.show()
-    else:
-        plt.savefig('/mnt/c/Users/sgagn/OneDrive/Documents/andrei/tau_igm/plots/tang_model.pdf')
+    plt.show()

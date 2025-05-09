@@ -28,6 +28,8 @@ nu_uv = (c/(1500*u.Angstrom)).to('Hz').value
 kappa_uv = 1.15e-28
 sfr = lum_dens_uv*kappa_uv
 l_lya = 1215.67
+# assumes case B recombination
+# possibly inaccurate c.f. https://arxiv.org/pdf/2503.21896
 fesc_prefactor = nu_uv/(11.5*kappa_uv*l_lya)
 w_intr_prefactor = 11.5*kappa_uv*l_lya/nu_uv
 
@@ -36,15 +38,18 @@ limit_v = -18.8 - Planck18.distmod(5.0).value + Planck18.distmod(5.0).value
 limit_i = -19.1 - Planck18.distmod(5.0).value + Planck18.distmod(5.9).value
 limit_mean = np.mean([limit_b, limit_v, limit_i])
 
-theta_min = np.array([1e40, 2, -1449.0])
-theta_max = np.array([1e42, 3, -1320.0])
+# a_w = -0.0034
+# a_v = -80.5
 
-# theta_min = np.array([1e41, 0, -1449.0])
-# theta_max = np.array([4e41, 3, -1000.0])
+# theta_min = np.array([-0.0034/1.1, -80.5/1.1, 1e40, 2, -1500.0])
+# theta_max = np.array([-0.0034*1.1, -80.5*1.1, 1e42, 3, -1300.0])
+FACTOR = 1.2
+theta_min = np.array([-0.0034/1.2, -80.5/FACTOR, 1e41, 2.698/FACTOR, -1336.9])
+theta_max = np.array([-0.0034*1.2, -80.5*FACTOR, 3.26e41*1.1, 2.698, -1336.9/FACTOR])
+# theta_min = np.array([-0.0034/FACTOR, -80.5/FACTOR, 3.26e41/FACTOR, 2.698/FACTOR, -1336.9/FACTOR])
+# theta_max = np.array([-0.0034*FACTOR, -80.5*FACTOR, 3.26e41*FACTOR, 2.698*FACTOR, -1336.9*FACTOR])
+
 # theta_mle = np.array([3.26e41, 2.698, -1336.9])
-
-a_w = -0.0034
-a_v = -80.5
 
 def get_tang_data():
     # TANG LAE data
@@ -56,31 +61,36 @@ def get_tang_data():
 
 def get_sigma(theta):
 
-    a_ha, b_w, b_v = theta
+    a_w, a_v, a_ha, b_w, b_v = theta
 
     # compute residuals
-    # res_ha = np.abs(lum_ha_data/(sfr_data*a_ha))
-    # sigma_ha = res_ha.std()*a_ha
+    res_ha = np.abs(lum_ha_data/(sfr_data*a_ha))
+    sigma_ha = res_ha.std()*a_ha
 
-    # res_w = np.abs(np.log10(ew_lya) - a_w*dv_lya + b_w)
-    # sigma_w = res_w.mean()
+    res_w = np.abs(np.log10(ew_lya) - a_w*dv_lya + b_w)
+    sigma_w = res_w.mean()
 
-    # res_v = np.abs(dv_lya - (a_v*MUV + b_v))
-    # sigma_v = res_v.mean()
+    res_v = np.abs(dv_lya - (a_v*MUV + b_v))
+    sigma_v = res_v.mean()
 
-    # return np.array([3e41, 0.306, 88.9])
-    rel_ha = np.random.uniform(0.5, 5)
-    rel_w = np.random.uniform(0.01, 1.0)
-    rel_v = np.random.uniform(0.01, 1.0)
-    sigma_ha = rel_ha*a_ha
-    sigma_w =  rel_w*b_w
-    sigma_v =  -1*rel_v*b_v
     return np.array([sigma_ha, sigma_w, sigma_v])
 
 def get_theta(theta):
     """
     Inputs sampled from a uniform distribution
     """
+
+    _theta = theta_min + (theta_max - theta_min)*theta
+
+    # change range of b_w depending on slope of a_w
+    b_v_max = 300 + 19 * _theta[1]
+    theta_max[4] = b_v_max
+    b_w_max = np.log10(2) + 2 + 20*_theta[0]*_theta[1] - _theta[0]*theta_min[4]
+    theta_max[3] = b_w_max
+
+    # print(theta_min[4], theta_max[4])
+    # print(theta_min[3], theta_max[3])
+    # quit()
 
     theta = theta_min + (theta_max - theta_min)*theta
 
@@ -96,7 +106,7 @@ def get_lya_properties(theta):
 
     # theta = np.concatenate([theta_mle, get_sigma(theta_mle)])
 
-    a_ha_mean, b_w_mean, b_v_mean,\
+    a_w, a_v, a_ha_mean, b_w_mean, b_v_mean,\
         sigma_ha, sigma_w, sigma_v = theta
     
     # sample random variables
@@ -104,9 +114,10 @@ def get_lya_properties(theta):
     b_w = np.random.normal(b_w_mean, sigma_w, NSAMPLES)
     b_v = np.random.normal(b_v_mean, sigma_v, NSAMPLES)
 
-    dv = a_v*muv + b_v
+    dv = np.abs(a_v*muv + b_v)
     fesc = fesc_prefactor*((1.04*10**(a_w*a_v))**(muv + 19.5))*\
             (10**(a_w*(b_v - 19.5*a_v) + b_w))/a_ha
+    fesc[fesc>1] = 1
     w_intr = w_intr_prefactor * a_ha * beta_factor
     w = w_intr*fesc
 
@@ -129,14 +140,12 @@ def model(theta):
     # start = time.time()
 
     # number density comparison with Umeda+24 ~2.58 10^-3 cMpc^-3 La>10^42.7 erg/s
-    n_LAE = len(lum_alpha[lum_alpha>5e42])/3e2**3
+    n_LAE = len(lum_alpha[lum_alpha>5e42])/(3e2**3)
     if n_LAE == 0:
         return np.zeros((15, 10000)), 1e6
     
-    if n_LAE < 2.58e-3:
-        n_likelihood = np.log10(2.58e-3/n_LAE)
-    else:
-        n_likelihood = np.log10(n_LAE/2.58e-3)
+    print(n_LAE)
+    n_likelihood = np.abs(np.log10(n_LAE) - np.log10(2.58e-3))
         
     # appy selection effects
     _mab = np.copy(mab)
@@ -299,13 +308,14 @@ if __name__ == "__main__":
 
     for i in range(10):
         
-        theta = np.random.uniform(0, 1, 3)
+        theta = np.random.uniform(0, 1, 5)
         theta = get_theta(theta)
         model_hist_list, n_likelihood = model(theta)
 
         if np.sum(model_hist_list) > 0:
            
-            likelihood = n_likelihood
+            likelihood = 1.0
+
             for dhist, mhist, lw in zip(data_hist_list, model_hist_list, likelihood_weights):
 
                 dhist /= dhist.sum()
@@ -317,14 +327,16 @@ if __name__ == "__main__":
 
                 dkl_integrand = lw*dhist*(np.log(dhist) - np.log(mhist))
                 dkl = dkl_integrand.sum()
-                likelihood += dkl
+                if dkl <= 0:
+                    dkl = 1e-3
+                likelihood += np.log(dkl)
                 
         else:
-            likelihood = 15.0
-        
-        likelihood /= 15.0
+            likelihood = np.log(n_likelihood)
 
-        likelihood += n_likelihood
+        likelihood /= 15
+
+        likelihood += np.log(n_likelihood)
         
         print(theta, np.around(n_likelihood, 2), np.around(likelihood, 2))
         likelihood_list.append(likelihood)
