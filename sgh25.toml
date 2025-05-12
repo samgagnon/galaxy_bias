@@ -2,7 +2,7 @@
 
 [CosmoParams]
 
-[UserParams]
+[SimulationOptions]
 HII_DIM = 200
 DIM = 600
 BOX_LEN = 300
@@ -15,7 +15,7 @@ PERTURB_ON_HIGH_RES = true
 [AstroParams]
 R_BUBBLE_MAX = 50.0
 
-[FlagOptions]
+[AstroOptions]
 USE_HALO_FIELD = true
 HALO_STOCHASTICITY = true
 USE_EXP_FILTER = true
@@ -23,3 +23,4 @@ CELL_RECOMB = true
 USE_MINI_HALOS = false
 USE_TS_FLUCT = true
 INHOMO_RECO = true
+
