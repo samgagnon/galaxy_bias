@@ -1,3 +1,4 @@
+import numpy as np
 import py21cmfast as p21c
 
 import logging, os
@@ -27,6 +28,8 @@ if __name__ == "__main__":
     node_redshifts = p21c.get_logspaced_redshifts(min_redshift  = min_redshift,
                              max_redshift  = max_redshift,
                              z_step_factor = 1.02)
+    
+    node_redshifts = np.concatenate((node_redshifts, np.array([4.9, 5.7, 6.0, 6.6, 7.0, 7.3])))
 
     inputs = p21c.InputParameters.from_template('./sgh25.toml',\
                 random_seed=1,\
@@ -35,12 +38,13 @@ if __name__ == "__main__":
     lcn = p21c.RectilinearLightconer.with_equal_cdist_slices(
         min_redshift=inputs.node_redshifts[-1],
         max_redshift=inputs.node_redshifts[0],
-        resolution=inputs.user_params.cell_size,
+        resolution=inputs.simulation_options.cell_size,
         cosmo=inputs.cosmo_params.cosmo,
-        quantities=['brightness_temp', 'density', 'xH_box', 'velocity_z']
+        quantities=['brightness_temp', 'density', \
+                    'kinetic_temperature', 'neutral_fraction', 'velocity_z']
     )
 
-    _, _, _, lc = p21c.exhaust_lightcone(
+    _, _, _, lc = p21c.run_lightcone(
         lightconer=lcn,
         inputs=inputs,
     )

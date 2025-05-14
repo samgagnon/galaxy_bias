@@ -6,18 +6,20 @@
 HII_DIM = 200
 DIM = 600
 BOX_LEN = 300
-HMF = 'ST'
 N_THREADS = 4
 SAMPLER_MIN_MASS = 5e8
-AVG_BELOW_SAMPLER = true
+
+[MatterOptions]
+HALO_STOCHASTICITY = true
 PERTURB_ON_HIGH_RES = true
+HMF = 'ST'
 
 [AstroParams]
 R_BUBBLE_MAX = 50.0
 
 [AstroOptions]
+AVG_BELOW_SAMPLER = true
 USE_HALO_FIELD = true
-HALO_STOCHASTICITY = true
 USE_EXP_FILTER = true
 CELL_RECOMB = true
 USE_MINI_HALOS = false
