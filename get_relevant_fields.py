@@ -9,43 +9,8 @@ import os
 import numpy as np
 import py21cmfast as p21c
 
+from tqdm import tqdm
 from astropy.cosmology import Planck18
-
-def plot(halo_masses, stellar_masses, sfr):
-    import matplotlib.pyplot as plt
-    rc = {"font.family" : "serif", 
-        "mathtext.fontset" : "stix"}
-    plt.rcParams.update(rc) 
-    plt.rcParams["font.serif"] = ["Times New Roman"] + plt.rcParams["font.serif"]
-    plt.rcParams.update({'font.size': 14})
-    plt.style.use('dark_background')
-
-    alpha = 0.1
-
-    fig, axs = plt.subplots(1, 3, figsize=(18, 6), constrained_layout=True)
-    axs[0].scatter(halo_masses, stellar_masses, s=1, alpha=alpha, rasterized=True)
-    axs[0].set_xlabel(r'$M_{\rm halo}$ [$M_{\odot}$]')
-    axs[0].set_ylabel(r'$M_{\rm star}$ [$M_{\odot}$]')
-    axs[0].set_xscale('log')
-    axs[0].set_yscale('log')
-    axs[0].set_xlim(1e8, 1e9)
-
-    axs[1].scatter(halo_masses, sfr, s=1, alpha=alpha, rasterized=True)
-    axs[1].set_xlabel(r'$M_{\rm halo}$ [$M_{\odot}$]')
-    axs[1].set_ylabel(r'SFR [$M_{\odot}$ yr$^{-1}$]')
-    axs[1].set_xscale('log')
-    axs[1].set_yscale('log')
-    axs[1].set_xlim(1e8, 1e9)
-
-    axs[2].scatter(halo_masses, sfr/stellar_masses, s=1, alpha=alpha, rasterized=True)
-    axs[2].set_xlabel(r'$M_{\rm halo}$ [$M_{\odot}$]')
-    axs[2].set_ylabel(r'sSFR [yr$^{-1}$]')
-    axs[2].set_xscale('log')
-    axs[2].set_yscale('log')
-    axs[2].set_xlim(1e8, 1e9)
-
-    plt.show()
-    quit()
 
 def get_stellar_mass(halo_masses, stellar_rng):
     sigma_star = 0.5
@@ -79,77 +44,77 @@ def get_sfr(stellar_mass, sfr_rng, z):
 
 if __name__ == "__main__":
     
+    # TODO reconfigure, currently hardcoded
+
     cache_dir = './data/lc_cache/sgh25/'
 
-    # LC = p21c.LightCone.read('./data/lightcones/LC.h5')
-
-    all_cache_files = os.listdir(cache_dir)
-
     # create savedir for halo fields
-    os.makedirs('./data/halo_fields', exist_ok=True)
+    os.makedirs('./data/halo_fields/sgh25/', exist_ok=True)
 
-    halo_fields = []
-    for file in all_cache_files:
-        if file.startswith("HaloField"):
-            halo_fields.append(file)
+    # call these in a separate loop
+    # relevant_redshifts = [4.9, 5.7, 6.0, 6.6, 7.0, 7.3, 8.0
+    
+    min_redshift=5.0
+    max_redshift=35.0
 
-    relevant_redshifts = [4.9, 5.7, 6.0, 6.6, 7.0, 7.3, 8.0]
-    cache_redshifts = []
+    node_redshifts = p21c.get_logspaced_redshifts(min_redshift=min_redshift,
+                            max_redshift=max_redshift,
+                            z_step_factor=1.02)
+    
+    inputs = p21c.InputParameters.from_template('./sgh25.toml',\
+            random_seed=1,\
+            node_redshifts=node_redshifts)
+    
+    lc = p21c.LightCone.from_file('./data/lightcones/sgh25.h5')
+    los_z = lc.lightcone_redshifts
 
-    for halo_field_fn in halo_fields:
-        halo_field = p21c.HaloField.from_file(fname=halo_field_fn, direc=cache_dir)
-        redshift = halo_field.redshift
-        cache_redshifts.append(redshift)
+    cache_dir = './data/lc_cache/sgh25/'
+    cache = p21c.OutputCache(cache_dir)
+    runcache = p21c.RunCache.from_inputs(cache=cache,inputs=inputs)
 
-    relevant_redshifts = np.asarray(relevant_redshifts)
-    cache_redshifts = np.asarray(cache_redshifts)
+    for i, _z in enumerate(tqdm(node_redshifts)):
+        # read in halo field object
+        pth_z = runcache.get_output_struct_at_z(
+            kind="PerturbHaloField",
+            z=_z,
+            match_z_within=0.01,
+        )
 
-    rel_indices = [np.argmin(np.abs(rel_z - cache_redshifts)) for rel_z in relevant_redshifts]
+        x, y, z = pth_z.get('halo_coords').T
 
-    halo_fields = [halo_fields[i] for i in rel_indices]
+        if np.sum(x**2+y**2+z**2) == 0:
+            continue
+        # save the indices of all "inhabited" voxels
 
-    for halo_field_fn in halo_fields:
-        halo_field = p21c.HaloField.from_file(fname=halo_field_fn, direc=cache_dir)
-        if halo_field.random_seed == 1:
-            x, y, z = halo_field.halo_coords.T
+        DIM = pth_z.simulation_options.DIM
+        HII_DIM = pth_z.simulation_options.HII_DIM
+        BOX_LEN = pth_z.simulation_options.BOX_LEN
 
-            if np.sum(x**2+y**2+z**2) != 0:
-                # save the indices of all "inhabited" voxels
+        redshift = pth_z.get('redshift')
+        halo_masses = pth_z.get('halo_masses')
+        sfr_rng = pth_z.get('sfr_rng')[halo_masses > 0]
+        stellar_rng = pth_z.get('star_rng')[halo_masses > 0]
 
-                DIM = halo_field.user_params.DIM
-                HII_DIM = halo_field.user_params.HII_DIM
-                BOX_LEN = halo_field.user_params.BOX_LEN
+        x = x[halo_masses > 0]
+        y = y[halo_masses > 0]
+        z = z[halo_masses > 0]
+        halo_masses = halo_masses[halo_masses > 0]
+        
+        stellar_masses = get_stellar_mass(halo_masses, stellar_rng)
+        sfr = get_sfr(stellar_masses, sfr_rng, redshift)
 
-                # convert from voxel coords to comoving coords
-                x, y, z = (x*HII_DIM/DIM).astype(np.int32), \
-                    (y*HII_DIM/DIM).astype(np.int32), (z*HII_DIM/DIM).astype(np.int32)
+        # coeval coords to LC coords
+        z_adjust = np.argmin(np.abs(los_z - _z))
+        z += z_adjust - int(HII_DIM/2)
 
-                redshift = halo_field.redshift
-                halo_masses = halo_field.halo_masses
-                sfr_rng = halo_field.sfr_rng[halo_masses > 0]
-                stellar_rng = halo_field.star_rng[halo_masses > 0]
+        # save the halo field
+        halo_field = np.zeros((6, len(x)), dtype=np.float32)
+        halo_field[0] = x
+        halo_field[1] = y
+        halo_field[2] = z
+        halo_field[3] = halo_masses
+        halo_field[4] = stellar_masses
+        halo_field[5] = sfr
 
-                x = x[halo_masses > 0]
-                y = y[halo_masses > 0]
-                z = z[halo_masses > 0]
-                halo_masses = halo_masses[halo_masses > 0]
-                
-                stellar_masses = get_stellar_mass(halo_masses, stellar_rng)
-                sfr = get_sfr(stellar_masses, sfr_rng, redshift)
-
-                # coeval coords to LC coords
-                d_z = Planck18.comoving_distance(redshift).value - Planck18.comoving_distance(5.0).value
-                d_z = (d_z*HII_DIM/BOX_LEN).astype(np.int32) - HII_DIM//2
-                z += d_z
-
-                # save the halo field
-                halo_field = np.zeros((6, len(x)), dtype=np.float32)
-                halo_field[0] = x
-                halo_field[1] = y
-                halo_field[2] = z
-                halo_field[3] = halo_masses
-                halo_field[4] = stellar_masses
-                halo_field[5] = sfr
-
-                np.save(f'./data/halo_fields/halo_field_{np.around(redshift,2)}.npy', halo_field)
-                print(f"Saved halo field at redshift {np.around(redshift, 2)}")
+        np.save(f'./data/halo_fields/sgh25/halo_field_{redshift}.npy', halo_field)
+        # print(f"Saved halo field at redshift {np.around(redshift, 2)}")
