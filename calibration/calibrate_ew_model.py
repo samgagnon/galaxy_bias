@@ -233,7 +233,7 @@ def get_lya_properties(halo_masses, muv, redshift, mode='mason'):
 
     return halo_masses, muv, mab, fha, dv, w, fesc
 
-def get_lya_properties_theta(theta):
+def get_lya_properties_theta_dep(theta):
 
 
     a_w, a_v, a_ha_mean, b_w_mean, b_v_mean,\
@@ -276,6 +276,35 @@ def get_lya_properties_theta(theta):
 
     return halo_masses, muv, mab, fha, dv, w, fesc
 
+def get_lya_properties_theta(halo_masses, muv, sfr, theta):
+
+    a_w, a_v, b_h_mean, b_w_mean, b_v_mean,\
+        sigma_h, sigma_w, sigma_v, _ = theta
+    
+    NSAMPLES = len(muv)
+
+    # three random variables and two fixed slopes
+    b_h = np.random.normal(b_h_mean, sigma_h, NSAMPLES)
+    b_w = np.random.normal(b_w_mean, sigma_w, NSAMPLES)
+    b_v = np.random.normal(b_v_mean, sigma_v, NSAMPLES)
+
+    # we could alternatively set this to -2
+    beta = get_beta_bouwens14(muv)
+    log10w = a_w*a_v*muv + b_w + a_w*b_v
+    log10fesc = log10w - b_h + 39.19 + 0.81*(beta + 2)
+    dv = a_v*muv + b_v
+    fesc = 10**log10fesc
+    w = 10**log10w
+
+    lha = (10**b_h) * sfr
+    fha = lha / lum_flux_factor
+
+    lum_dens_alpha = (w / 1215.67) * (10**(-0.4*(muv - 51.6))) * (1215.67/1500)**(beta + 2)
+    intensity = lum_dens_alpha/lum_flux_factor
+    mab = -2.5 * np.log10(intensity) - 48.6
+
+    return halo_masses, muv, mab, fha, dv, w, fesc
+
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     rc = {"font.family" : "serif", 
@@ -310,17 +339,28 @@ if __name__ == "__main__":
 
     _, _, _, halo_masses, _, sfr = np.load(f'../data/halo_field_{redshift}.npy')
 
-    muv = 51.64 - np.log10(sfr*3.1557e7/1.15e-28) / 0.4
+    sfr *= 3.1557e7
+    kuv = 1.15e-28  # conversion factor from SFR to luminosity density in erg/s/cm^2/Hz
+    muv = 51.64 - 2.5*np.log10(sfr/kuv)
 
+    # purge extremely dim galaxies
     halo_masses = halo_masses[muv<=-16]
+    sfr = sfr[muv<=-16]
     muv = muv[muv<=-16]
 
+    lum_flux_factor = 4*np.pi*(Planck18.luminosity_distance(redshift).to('cm').value)**2
+
     # simulated lya properties
-    halo_masses, muv, mab, fha, dv, w, fesc = get_lya_properties(halo_masses, muv, redshift, mode='mason')
+    # halo_masses, muv, mab, fha, dv, w, fesc = get_lya_properties(halo_masses, muv, redshift, mode='mason')
     # halo_masses, muv, mab, fha, dv, w, fesc = get_lya_properties(halo_masses, muv, redshift, mode='gaussian')
     # halo_masses, muv, mab, fha, dv, w, fesc = get_lya_properties(halo_masses, muv, redshift, mode='fesc')
     # theta = np.load('../data/theta.npy')
-    # halo_masses, muv, mab, fha, dv, w, fesc = get_lya_properties_theta(theta)
+    # halo_masses, muv, mab, fha, dv, w, fesc = get_lya_properties_theta_dep(theta)
+    theta = np.array([-1/643, -74, 41.96, 2.35, -1206,\
+        0.36, 0.33, 91, 0.5])
+    theta *= np.random.normal(1, 0.05, len(theta))
+    halo_masses, muv, mab, fha, dv, w, fesc \
+        = get_lya_properties_theta(halo_masses, muv, sfr, theta)
 
     # measured lya properties from https://arxiv.org/pdf/2402.06070
     MUV, MUV_err, z, ew_lya, ew_lya_err, dv_lya, dv_lya_err, \

@@ -46,7 +46,7 @@ if __name__ == "__main__":
     dv_space = np.linspace(0, 1000, 100)
     dv_logspace = 10**np.linspace(0, 3, 100)
     w_space = 10**np.linspace(0, 3, 100)
-    fesc_space = np.linspace(0, 1, 100)
+    fesc_space = np.linspace(0, 1.5, 100)
 
     muv_space = muv_space[1:] - (muv_space[1] - muv_space[0])
     dv_space = dv_space[1:] - (dv_space[1] - dv_space[0])
@@ -119,6 +119,19 @@ if __name__ == "__main__":
     data_err24 = np.array([ew_lya_err[ID>1], fescA_err[ID>1]])
     _, _, h24 = dat_to_hist(w_space, fesc_space, data24, data_err24)
 
+    # muv-fesc
+    data05 = np.array([MUV[ID==0], fescA[ID==0]])
+    data_err05 = np.array([MUV_err[ID==0], fescA_err[ID==0]])
+    _, _, h05 = dat_to_hist(muv_space, fesc_space, data05, data_err05)
+
+    data15 = np.array([MUV[ID==1], fescA[ID==1]])
+    data_err15 = np.array([MUV_err[ID==1], fescA_err[ID==1]])
+    _, _, h15 = dat_to_hist(muv_space, fesc_space, data15, data_err15)
+
+    data25 = np.array([MUV[ID>1], fescA[ID>1]])
+    data_err25 = np.array([MUV_err[ID>1], fescA_err[ID>1]])
+    _, _, h25 = dat_to_hist(muv_space, fesc_space, data25, data_err25)
+
     os.makedirs('../data/muse_hist', exist_ok=True)
     np.save('../data/muse_hist/hist00.npy', h00)
     np.save('../data/muse_hist/hist10.npy', h10)
@@ -135,3 +148,7 @@ if __name__ == "__main__":
     np.save('../data/muse_hist/hist04.npy', h04)
     np.save('../data/muse_hist/hist14.npy', h14)
     np.save('../data/muse_hist/hist24.npy', h24)
+    np.save('../data/muse_hist/hist05.npy', h05)
+    np.save('../data/muse_hist/hist15.npy', h15)
+    np.save('../data/muse_hist/hist25.npy', h25)
+    print("Histograms saved to ../data/muse_hist/")

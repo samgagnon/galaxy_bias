@@ -7,10 +7,6 @@ from Corrfunc.utils import convert_3d_counts_to_cf
 from astropy.cosmology import Planck18
 from astropy import units as u
 
-# from powerbox import get_power
-
-
-
 def get_muv(sfr):
     """
     Converts star formation rate to
