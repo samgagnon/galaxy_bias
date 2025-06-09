@@ -301,29 +301,20 @@ class LymanAlphaPopulation():
     
     def likelihood(self):
 
-        # ultranest wants this passed as a function
-        theta = self.prior()
-
         # some data should always be loaded in memory
         data_hist_list = self.load_t24_histograms()
 
-        # initialize log-likelihood
-        logl = 0.0
-
-        self.load_data(5.0)
+        redshift = 5.0
+        self.load_data(redshift)
+        theta = self.prior()
         self.set_lya_properties(theta)
-        model_hist_list = self.get_t24_histograms()
-        hist_likelihood = np.sum([self.log_kl_divergence(m, d) for \
-            m, d in zip(model_hist_list, data_hist_list)])
-        logl += hist_likelihood
-
-        # constant file reading is slow, make these functions setters
-        # and load the data once at initialization
-        self.load_data(5.7)
-        self.load_data(6.6)
-        self.load_data(7.0)
-        self.load_data(7.3)
-        return logl
+        likelihood = 0.0
+        if redshift == 5.0:
+            model_hist_list = self.get_t24_histograms()
+            hist_likelihood = np.sum([self.log_kl_divergence(m, d) for \
+                m, d in zip(model_hist_list, data_hist_list)])
+            likelihood += hist_likelihood
+        return likelihood
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
