@@ -23,11 +23,10 @@ if __name__ == "__main__":
     plt.rcParams.update({'font.size': 14})
 
     # import the lightcone and extract the relevant quantities
-    LC = p21c.LightCone.read('./data/lightcones/sgh25.h5')
-    xHI = LC.xH_box
-    vz = LC.velocity_z
-    density = LC.density
-    node_redshifts = LC.node_redshifts
+    LC = p21c.LightCone.from_file('./data/sgh25.h5')
+    xHI = LC.lightcones['neutral_fraction']
+    vz = LC.lightcones['velocity_z']
+    density = LC.lightcones['density']
 
     # rewrite these to load in the values from the lightcone
     DIM = xHI.shape[0]

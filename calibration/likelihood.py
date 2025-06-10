@@ -45,11 +45,27 @@ class LymanAlphaPopulation():
         self.theta_min = np.array([-1e-3, -100, 41, 1.5, -1.5e3, 0.1, 0.1, 50, 0.0])
         self.theta_max = np.array([-1e-2, -50, 42, 3.0, -1e3, 0.5, 0.5, 200, 0.8])
 
-    def load_data(self, redshift):
+        # halo field data
+        self.all_data = {}
+        self._load_data()
+
+    def _load_data(self):
         """
         Setter function for halo field
         """
-        _, _, _, self.halo_masses, _, self.sfr = np.load(f'../data/halo_field_{redshift}.npy')
+        for redshift in [5.0, 5.7, 6.6, 7.0, 7.3]:
+            _, _, _, self.halo_masses, _, self.sfr = np.load(f'../data/halo_field_{redshift}.npy')
+            self.all_data[str(redshift)] = {
+                'halo_masses': self.halo_masses,
+                'sfr': self.sfr
+            }
+
+    def set_data(self, redshift):
+        """
+        Setter function for halo field
+        """
+        self.halo_masses = self.all_data[str(redshift)]['halo_masses']
+        self.sfr = self.all_data[str(redshift)]['sfr']
         self.sfr = self.sfr * 3.1557e7
         self.muv = 51.64 - np.log10(self.sfr/self.kuv) / 0.4
         self.halo_masses = self.halo_masses[self.muv<=-16]
@@ -319,10 +335,10 @@ class LymanAlphaPopulation():
 
         # constant file reading is slow, make these functions setters
         # and load the data once at initialization
-        self.load_data(5.7)
-        self.load_data(6.6)
-        self.load_data(7.0)
-        self.load_data(7.3)
+        self.set_data(5.7)
+        self.set_data(6.6)
+        self.set_data(7.0)
+        self.set_data(7.3)
         return logl
 
 if __name__ == "__main__":

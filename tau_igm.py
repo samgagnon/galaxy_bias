@@ -7,10 +7,10 @@ import numpy as np
 import py21cmfast as p21c
 
 def get_absorption_properties():
-    LC = p21c.LightCone.read('./data/lightcones/sgh25.h5')
-    xHI = LC.xH_box
-    density = LC.density
-    vz = LC.velocity_z
+    LC = p21c.LightCone.from_file('./data/sgh25.h5')
+    xHI = LC.lightcones['neutral_fraction']
+    vz = LC.lightcones['velocity_z']
+    density = LC.lightcones['density']
 
     # wavelength range
     wavelength_range = np.linspace(1215, 1220, 1000)
@@ -89,7 +89,8 @@ if __name__ == "__main__":
         n_HI = get_absorption_properties()
 
     tau_igm_table = np.zeros((1000, len(z_LoS)//2))
-    for k in range(len(z_LoS)//2):
+    from tqdm import tqdm
+    for k in tqdm(range(len(z_LoS)//2)):
         tau_igm = get_tau_igm(0, 0, k, xHI, density, z_LoS, voigt_tables, rel_idcs_list, \
                 z_LoS_highres_list, z_table_list, dz_list, prefactor, n_HI)
         tau_igm_table[:,k] = tau_igm
