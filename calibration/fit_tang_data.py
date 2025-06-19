@@ -82,7 +82,7 @@ def kl_divergence(p, q):
     
     return np.sum(p * np.log(p / q))
 
-def dice_loss(p, q):
+def loss(p, q):
     """
     Calculate the DICE loss between two probability distributions.
     
@@ -99,15 +99,45 @@ def dice_loss(p, q):
     p = np.asarray(p, dtype=np.float64)
     q = np.asarray(q, dtype=np.float64)
 
-    # avoid division by zero
-    p = np.clip(p, 1e-10, None)
-    q = np.clip(q, 1e-10, None)
-
     # normalize the distributions
+    p = np.asarray(p, dtype=np.float64)
+    q = np.asarray(q, dtype=np.float64)
+    alpha = 1e-6
+    p += alpha
+    q += alpha
     p = p / np.sum(p)
     q = q / np.sum(q)
+
+    kl_smooth = np.sum(p * np.log((p) / (q)))
+
+    return kl_smooth
+
+# def loss(p, q):
+#     """
+#     Calculate the DICE loss between two probability distributions.
+
+#     Parameters:
+#     p : array-like
+#         The first probability distribution (true distribution).
+#     q : array-like
+#         The second probability distribution (approximate distribution).
+        
+#     Returns:
+#     float
+#         The DICE loss between p and q.
+#     """
+#     p = np.asarray(p, dtype=np.float64)
+#     q = np.asarray(q, dtype=np.float64)
+
+#     # avoid division by zero
+#     p = np.clip(p, 1e-10, None)
+#     q = np.clip(q, 1e-10, None)
+
+#     # normalize the distributions
+#     p = p / np.sum(p)
+#     q = q / np.sum(q)
     
-    return 1 - np.sum(np.sqrt(p * q))
+#     return 1 - np.sum(np.sqrt(p * q))
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
@@ -126,7 +156,7 @@ if __name__ == "__main__":
     # measured lya properties from https://arxiv.org/pdf/2402.06070
     MUV, MUV_err, z, ew_lya, ew_lya_err, dv_lya, dv_lya_err, \
         fescA, fescA_err, fescB, fescB_err, ID = get_tang_data()
-    
+     
     _muv_wide, _ew_wide, _dv_wide, _fescA_wide = [], [], [], []
     _muv_deep, _ew_deep, _dv_deep, _fescA_deep = [], [], [], []
 
@@ -170,35 +200,34 @@ if __name__ == "__main__":
     _lya_deep = _ew_deep*(2.47e15/1215.67)*10**(0.4*(51.6 - _muv_deep))*(1215.67/1500)**(_b_deep+2)
     _lha_deep = _lya_deep/11.4
 
+    # all data at redshift 5
+    distance_factor = 4*np.pi*Planck18.luminosity_distance(5.0).to(u.cm).value**2
+
     # wide bounds 
     wdv_wide_bounds = [[0.9*np.log10(8), 1.1*np.log10(_ew_wide.max())], 
                                     [0.9*_dv_wide.min(), 1.1*_dv_wide.max()]]
     # deep bounds
     wdv_deep_bounds = [[0.9*np.log10(8), 1.1*np.log10(_ew_deep.max())], 
                                     [0.9*_dv_deep.min(), 1.1*_dv_deep.max()]]
-
-    # all data at redshift 5
-    distance_factor = 4*np.pi*Planck18.luminosity_distance(5.0).to(u.cm).value**2
-
-    wide_lum = _ew_wide*(2.47e15/1215.67)*10**(0.4*(51.6 - _muv_wide))*(1215.67/1500)**(_b_wide+2)
-    wide_flux = wide_lum / distance_factor
-
-    deep_lum = _ew_deep*(2.47e15/1215.67)*10**(0.4*(51.6 - _muv_deep))*(1215.67/1500)**(_b_deep+2)
-    deep_flux = deep_lum / distance_factor
+    
+    obs_wide_flux = _ew_wide*(2.47e15/1215.67)*10**(0.4*(51.6 - _muv_wide))*(1215.67/1500)**(_b_wide+2)
+    obs_deep_flux = _ew_deep*(2.47e15/1215.67)*10**(0.4*(51.6 - _muv_deep))*(1215.67/1500)**(_b_deep+2)
 
     # first scatterplot: ew vs dv
-    wdv_wide_obs, log10ew_wide_axs, dv_wide_axs = np.histogram2d(np.log10(_ew_wide[wide_flux>wide_lim]), 
-                            _dv_wide[wide_flux>wide_lim], bins=50, range=wdv_wide_bounds)
+    wdv_wide_obs, log10ew_wide_axs, dv_wide_axs = np.histogram2d(np.log10(_ew_wide[obs_wide_flux>wide_lim]), 
+                            _dv_wide[obs_wide_flux>wide_lim], bins=50, range=wdv_wide_bounds)
     # first scatterplot: ew vs dv
-    wdv_deep_obs, log10ew_deep_axs, dv_deep_axs = np.histogram2d(np.log10(_ew_deep[deep_flux>deep_lim]), 
-                            _dv_deep[deep_flux>deep_lim], bins=50, range=wdv_deep_bounds)
+    wdv_deep_obs, log10ew_deep_axs, dv_deep_axs = np.histogram2d(np.log10(_ew_deep[obs_deep_flux>deep_lim]), 
+                            _dv_deep[obs_deep_flux>deep_lim], bins=50, range=wdv_deep_bounds)
 
     def optimise_wdv(theta):
         invm, b_mu, b_sigma = theta
         m = 1/invm  # Convert m to linear scale
+        
         y_wide = linear_scatter(_dv_wide, m, b_mu, b_sigma)
         ylya_wide = 10**y_wide*(2.47e15/1215.67)*10**(0.4*(51.6 - _muv_wide))*(1215.67/1500)**(_b_wide+2)
         yflux_wide = ylya_wide / distance_factor
+
         y_deep = linear_scatter(_dv_deep, m, b_mu, b_sigma)
         ylya_deep = 10**y_deep*(2.47e15/1215.67)*10**(0.4*(51.6 - _muv_deep))*(1215.67/1500)**(_b_deep+2)
         yflux_deep = ylya_deep / distance_factor
@@ -208,15 +237,15 @@ if __name__ == "__main__":
         wdv_deep_sim, _, _ = np.histogram2d(y_deep[yflux_deep>deep_lim], _dv_deep[yflux_deep>deep_lim], bins=50, 
                              range=wdv_deep_bounds)
     
-        return f_wide*dice_loss(wdv_wide_obs, wdv_wide_sim) + \
-            f_deep*dice_loss(wdv_deep_obs, wdv_deep_sim)
+        return f_wide*loss(wdv_wide_obs, wdv_wide_sim) + \
+            f_deep*loss(wdv_deep_obs, wdv_deep_sim)
         
     bounds = [(-1000, -200), (1.5, 4), (1e-2, 1.0)]
     result = differential_evolution(optimise_wdv, bounds, maxiter=1000, disp=True)
     # error estimation requires a fisher information matrix, which is not implemented here
 
     m, b_mu, b_sigma = result.x
-    m_v, b_mu_v, b_sigma_v = result.x
+    m_w, b_mu_w, b_sigma_w = result.x
     log10ew_wide_sim = linear_scatter(_dv_wide, 1/m, b_mu, b_sigma)
     sim_wide_lya = 10**log10ew_wide_sim*(2.47e15/1215.67)*10**(0.4*(51.6 - _muv_wide))*(1215.67/1500)**(_b_wide+2)
     sim_wide_flux = sim_wide_lya / distance_factor
@@ -269,11 +298,11 @@ if __name__ == "__main__":
     dvmuv_deep_bounds = [[0.9*_dv_deep.min(), 1.1*_dv_deep.max()],
                         [1.1*_muv_deep.min(), 0.9*_muv_deep.max()]]
     
-    dvmuv_wide_obs, dv_wide_axs, muv_wide_axs = np.histogram2d(_dv_wide[wide_flux>wide_lim], 
-                            _muv_wide[wide_flux>wide_lim], bins=50, range=dvmuv_wide_bounds)
+    dvmuv_wide_obs, dv_wide_axs, muv_wide_axs = np.histogram2d(_dv_wide[obs_wide_flux>wide_lim], 
+                            _muv_wide[obs_wide_flux>wide_lim], bins=50, range=dvmuv_wide_bounds)
     
-    dvmuv_deep_obs, dv_deep_axs, muv_deep_axs = np.histogram2d(_dv_deep[deep_flux>deep_lim], 
-                            _muv_deep[deep_flux>deep_lim], bins=50, range=dvmuv_deep_bounds)
+    dvmuv_deep_obs, dv_deep_axs, muv_deep_axs = np.histogram2d(_dv_deep[obs_deep_flux>deep_lim], 
+                            _muv_deep[obs_deep_flux>deep_lim], bins=50, range=dvmuv_deep_bounds)
 
     def optimise_dvmuv(theta):
 
@@ -281,14 +310,22 @@ if __name__ == "__main__":
 
         dv_sim_wide = linear_scatter(_muv_wide, m, b_mu, b_sigma)
         dv_sim_deep = linear_scatter(_muv_deep, m, b_mu, b_sigma)
+
+        log10w_wide = linear_scatter(dv_sim_wide, m_w, b_mu_w, b_sigma_w)
+        log10w_deep = linear_scatter(dv_sim_deep, m_w, b_mu_w, b_sigma_w)
+
+        _wide_lya = 10**log10w_wide*(2.47e15/1215.67)*10**(0.4*(51.6 - _muv_wide))*(1215.67/1500)**(_b_wide+2)
+        _wide_flux = _wide_lya / distance_factor
+        _deep_lya = 10**log10w_deep*(2.47e15/1215.67)*10**(0.4*(51.6 - _muv_deep))*(1215.67/1500)**(_b_deep+2)
+        _deep_flux = _deep_lya / distance_factor
         
-        dvmuv_wide_sim, _, _ = np.histogram2d(dv_sim_wide[wide_flux>wide_lim], 
-                            _muv_wide[wide_flux>wide_lim], bins=50, range=dvmuv_wide_bounds)
-        dvmuv_deep_sim, _, _ = np.histogram2d(dv_sim_deep[deep_flux>deep_lim], 
-                                _muv_deep[deep_flux>deep_lim], bins=50, range=dvmuv_deep_bounds)
+        dvmuv_wide_sim, _, _ = np.histogram2d(dv_sim_wide[_wide_flux>wide_lim], 
+                            _muv_wide[_wide_flux>wide_lim], bins=50, range=dvmuv_wide_bounds)
+        dvmuv_deep_sim, _, _ = np.histogram2d(dv_sim_deep[_deep_flux>deep_lim], 
+                                _muv_deep[_deep_flux>deep_lim], bins=50, range=dvmuv_deep_bounds)
     
-        return f_wide*dice_loss(dvmuv_wide_obs, dvmuv_wide_sim) + \
-            f_deep*dice_loss(dvmuv_deep_obs, dvmuv_deep_sim)
+        return f_wide*loss(dvmuv_wide_obs, dvmuv_wide_sim) + \
+            f_deep*loss(dvmuv_deep_obs, dvmuv_deep_sim)
     
     bounds = [(-100, -50), (-1500, -1200), (50, 200)]
     result = differential_evolution(optimise_dvmuv, bounds, maxiter=1000, disp=True)
@@ -298,11 +335,18 @@ if __name__ == "__main__":
     m_v, b_mu_v, b_sigma_v = result.x
     dv_sim_wide = linear_scatter(_muv_wide, m, b_mu, b_sigma)
     dv_sim_deep = linear_scatter(_muv_deep, m, b_mu, b_sigma)
+    log10ew_wide_sim = linear_scatter(dv_sim_wide, m_w, b_mu_w, b_sigma_w)
+    log10ew_deep_sim = linear_scatter(dv_sim_deep, m_w, b_mu_w, b_sigma_w)
+
+    _wide_lya = 10**log10ew_wide_sim*(2.47e15/1215.67)*10**(0.4*(51.6 - _muv_wide))*(1215.67/1500)**(_b_wide+2)
+    _wide_flux = _wide_lya / distance_factor
+    _deep_lya = 10**log10ew_deep_sim*(2.47e15/1215.67)*10**(0.4*(51.6 - _muv_deep))*(1215.67/1500)**(_b_deep+2)
+    _deep_flux = _deep_lya / distance_factor
     
-    dvmuv_wide_sim, _, _ = np.histogram2d(dv_sim_wide[wide_flux>wide_lim], 
-                            _muv_wide[wide_flux>wide_lim], bins=50, range=dvmuv_wide_bounds)
-    dvmuv_deep_sim, _, _ = np.histogram2d(dv_sim_deep[deep_flux>deep_lim], 
-                            _muv_deep[deep_flux>deep_lim], bins=50, range=dvmuv_deep_bounds)
+    dvmuv_wide_sim, _, _ = np.histogram2d(dv_sim_wide[_wide_flux>wide_lim], 
+                            _muv_wide[_wide_flux>wide_lim], bins=50, range=dvmuv_wide_bounds)
+    dvmuv_deep_sim, _, _ = np.histogram2d(dv_sim_deep[_deep_flux>deep_lim], 
+                            _muv_deep[_deep_flux>deep_lim], bins=50, range=dvmuv_deep_bounds)
     
     fig, axs = plt.subplots(2, 2, figsize=(18, 10))
     axs[0,0].pcolormesh(muv_wide_axs, dv_wide_axs, dvmuv_wide_obs, shading='auto', cmap='plasma')
@@ -341,14 +385,14 @@ if __name__ == "__main__":
                         [1.1*_muv_wide.min(), 0.9*_muv_wide.max()]]
     ewmuv_deep_bounds = [[0.9*np.log10(8), 1.1*np.log10(_ew_deep.max())],
                         [1.1*_muv_deep.min(), 0.9*_muv_deep.max()]]
-    ewmuv_wide_obs, log10ew_wide_axs, muv_wide_axs = np.histogram2d(np.log10(_ew_wide[wide_flux>wide_lim]),
-                            _muv_wide[wide_flux>wide_lim], bins=50, range=ewmuv_wide_bounds)
-    ewmuv_deep_obs, log10ew_deep_axs, muv_deep_axs = np.histogram2d(np.log10(_ew_deep[deep_flux>deep_lim]),
-                            _muv_deep[deep_flux>deep_lim], bins=50, range=ewmuv_deep_bounds)
-    ewmuv_wide_sim, _, _ = np.histogram2d(log10ew_wide_sim[sim_wide_flux>wide_lim],
-                            _muv_wide[sim_wide_flux>wide_lim], bins=50, range=ewmuv_wide_bounds)
-    ewmuv_deep_sim, _, _ = np.histogram2d(log10ew_deep_sim[sim_deep_flux>deep_lim],
-                            _muv_deep[sim_deep_flux>deep_lim], bins=50, range=ewmuv_deep_bounds)
+    ewmuv_wide_obs, log10ew_wide_axs, muv_wide_axs = np.histogram2d(np.log10(_ew_wide[obs_wide_flux>wide_lim]),
+                            _muv_wide[obs_wide_flux>wide_lim], bins=50, range=ewmuv_wide_bounds)
+    ewmuv_deep_obs, log10ew_deep_axs, muv_deep_axs = np.histogram2d(np.log10(_ew_deep[obs_deep_flux>deep_lim]),
+                            _muv_deep[obs_deep_flux>deep_lim], bins=50, range=ewmuv_deep_bounds)
+    ewmuv_wide_sim, _, _ = np.histogram2d(log10ew_wide_sim[_wide_flux>wide_lim],
+                            _muv_wide[_wide_flux>wide_lim], bins=50, range=ewmuv_wide_bounds)
+    ewmuv_deep_sim, _, _ = np.histogram2d(log10ew_deep_sim[_deep_flux>deep_lim],
+                            _muv_deep[_deep_flux>deep_lim], bins=50, range=ewmuv_deep_bounds)
 
     fig, axs = plt.subplots(2, 2, figsize=(18, 10))
     axs[0,0].pcolormesh(muv_wide_axs, log10ew_wide_axs, ewmuv_wide_obs, shading='auto', cmap='plasma')
@@ -385,10 +429,10 @@ if __name__ == "__main__":
     
     lha_deep_bounds = [[0.9*_lha_deep.min(), 1.1*_lha_deep.max()],
                         [0.9*_sfr_deep.min(), 1.1*_sfr_deep.max()]]
-    lha_wide_obs, lha_wide_axs, sfr_wide_axs = np.histogram2d(_lha_wide[wide_flux>wide_lim], 
-                            _sfr_wide[wide_flux>wide_lim], bins=50, range=lha_wide_bounds)
-    lha_deep_obs, lha_deep_axs, sfr_deep_axs = np.histogram2d(_lha_deep[deep_flux>deep_lim],
-                            _sfr_deep[deep_flux>deep_lim], bins=50, range=lha_deep_bounds)
+    lha_wide_obs, lha_wide_axs, sfr_wide_axs = np.histogram2d(_lha_wide[obs_wide_flux>wide_lim], 
+                            _sfr_wide[obs_wide_flux>wide_lim], bins=50, range=lha_wide_bounds)
+    lha_deep_obs, lha_deep_axs, sfr_deep_axs = np.histogram2d(_lha_deep[obs_deep_flux>deep_lim],
+                            _sfr_deep[obs_deep_flux>deep_lim], bins=50, range=lha_deep_bounds)
     
     def optimise_lha(theta):
         b_mu, b_sigma = theta
@@ -396,13 +440,13 @@ if __name__ == "__main__":
         lha_sim_wide = 10**np.random.normal(b_mu, b_sigma, len(_sfr_wide)) * _sfr_wide
         lha_sim_deep = 10**np.random.normal(b_mu, b_sigma, len(_sfr_deep)) * _sfr_deep
 
-        lha_wide_sim, _, _ = np.histogram2d(lha_sim_wide[wide_flux>wide_lim], 
-                            _sfr_wide[wide_flux>wide_lim], bins=50, range=lha_wide_bounds)
-        lha_deep_sim, _, _ = np.histogram2d(lha_sim_deep[deep_flux>deep_lim], 
-                            _sfr_deep[deep_flux>deep_lim], bins=50, range=lha_deep_bounds)
+        lha_wide_sim, _, _ = np.histogram2d(lha_sim_wide[sim_wide_flux>wide_lim], 
+                            _sfr_wide[sim_wide_flux>wide_lim], bins=50, range=lha_wide_bounds)
+        lha_deep_sim, _, _ = np.histogram2d(lha_sim_deep[sim_deep_flux>deep_lim], 
+                            _sfr_deep[sim_deep_flux>deep_lim], bins=50, range=lha_deep_bounds)
 
-        return f_wide*dice_loss(lha_wide_obs, lha_wide_sim) + \
-            f_deep*dice_loss(lha_deep_obs, lha_deep_sim)
+        return f_wide*loss(lha_wide_obs, lha_wide_sim) + \
+            f_deep*loss(lha_deep_obs, lha_deep_sim)
     
     bounds = [(40.5, 42), (0.1, 0.5)]
     result = differential_evolution(optimise_lha, bounds, maxiter=1000, disp=True)
@@ -412,10 +456,10 @@ if __name__ == "__main__":
     lha_sim_wide = 10**np.random.normal(b_mu, b_sigma, len(_sfr_wide)) * _sfr_wide
     lha_sim_deep = 10**np.random.normal(b_mu, b_sigma, len(_sfr_deep)) * _sfr_deep
 
-    lha_wide_sim, _, _ = np.histogram2d(lha_sim_wide[wide_flux>wide_lim], 
-                        _sfr_wide[wide_flux>wide_lim], bins=50, range=lha_wide_bounds)
-    lha_deep_sim, _, _ = np.histogram2d(lha_sim_deep[deep_flux>deep_lim], 
-                        _sfr_deep[deep_flux>deep_lim], bins=50, range=lha_deep_bounds)
+    lha_wide_sim, _, _ = np.histogram2d(lha_sim_wide[sim_wide_flux>wide_lim], 
+                        _sfr_wide[sim_wide_flux>wide_lim], bins=50, range=lha_wide_bounds)
+    lha_deep_sim, _, _ = np.histogram2d(lha_sim_deep[sim_deep_flux>deep_lim], 
+                        _sfr_deep[sim_deep_flux>deep_lim], bins=50, range=lha_deep_bounds)
     
     fig, axs = plt.subplots(2, 2, figsize=(18, 10))
     axs[0,0].pcolormesh(sfr_wide_axs, lha_wide_axs, lha_wide_obs, shading='auto', cmap='plasma')
