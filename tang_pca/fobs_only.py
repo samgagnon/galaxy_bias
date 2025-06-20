@@ -152,7 +152,7 @@ def line(x, m, b):
     """
     Linear function.
     """
-    return m * x + b
+    return m * (x + 18.5) + b
 
 XWIDE = np.array([np.log10(lum_lya_wide), dv_wide, np.log10(lum_ha_wide)])
 XDEEP = np.array([np.log10(lum_lya_deep), dv_deep, np.log10(lum_ha_deep)])
@@ -171,9 +171,9 @@ XSTD = XALL.std(axis=1, keepdims=True)
 np.save('../data/pca/xstd.npy', XSTD)
 XALL0 = (XALL - XC) / XSTD
 
-T = np.linalg.inv(np.load('../data/pca/A.npy'))
+T = np.load('../data/pca/A.npy')
 
-YALL = T @ XALL0
+YALL = np.linalg.inv(T) @ XALL0
 
 XWIDE0 = XWIDE - XC
 XDEEP0 = XDEEP - XC
@@ -184,6 +184,8 @@ def fit():
     """
 
     NBINS = 20
+    xc = np.load('../data/pca/xc.npy')
+    xstd = np.load('../data/pca/xstd.npy')
 
     muv_centers = np.linspace(-20, -17, NBINS)
     f = np.zeros((NBINS, 2))
@@ -211,11 +213,12 @@ def fit():
         f[i,1] = n_muv_deep / n_gal
         f_err[i,1] = f[i,1] * np.sqrt(n_gal_rel_err**2 + n_muv_deep_rel_err**2)
 
+    np.save('../data/pca/f.npy', f)
+    np.save('../data/pca/f_err.npy', f_err)
+
     def objective(params):
         m1, m2, m3, b1, b2, b3 = params
-
-        # TODO let's write in the linear function from analyse_pca.py for verification
-
+        
         # Fit the PCA coefficients to the observed fraction of LyA+Ha emitters
         mu1 = line(muv_centers, m1, b1)
         mu2 = line(muv_centers, m2, b2)
@@ -227,39 +230,78 @@ def fit():
         y2 = np.random.normal(mu2, std, (1000, NBINS))
         y3 = np.random.normal(mu3, std, (1000, NBINS))
 
-        Y = np.stack([y1, y2, y3]).reshape((1000, 3, NBINS))
-        X = (np.linalg.inv(T) @ Y) * XSTD.reshape((1, 3, 1)) + XC.reshape((1, 3, 1))
-        X = X.reshape((3, 1000, NBINS))
-        lly, _, lha = X
+        # NOTE something is going wrong with the values here
+        Y = np.stack([y1, y2, y3], axis=-2)
+        X0 = T @ Y  # Transform to PCA basis
 
-        plt.scatter(lly, lha)
-        plt.show()
+        lly, _, lha = X0[:,0,:], X0[:,1,:], X0[:,2,:]
+        lly = lly * xstd[0] + xc[0]
+        lha = lha * xstd[2] + xc[2]
 
-        _p_obs_wide = p_obs(lly, lha, muv_centers.reshape((1, 20)), mode='wide')
-        _p_obs_deep = p_obs(lly, lha, muv_centers.reshape((1, 20)), mode='deep')
+        _p_obs_wide = p_obs(10**lly, 10**lha, muv_centers.reshape((1, 20)), mode='wide')
+        _p_obs_deep = p_obs(10**lly, 10**lha, muv_centers.reshape((1, 20)), mode='deep')
 
         f_wide = np.sum(_p_obs_wide, axis=0) / 1000
         f_deep = np.sum(_p_obs_deep, axis=0) / 1000
 
-        # plt.scatter(muv_centers, f_wide, s=1, label='Wide Sample', color='red', alpha=0.5)
-        # plt.scatter(muv_centers, f_deep, s=1, label='Deep Sample', color='orange', alpha=0.5)
-        # plt.errorbar(muv_centers, f[:,0], yerr=f_err[:,0], fmt='o', color='red', markersize=5, label='Wide')
-        # plt.errorbar(muv_centers, f[:,1], yerr=f_err[:,1], fmt='o', color='orange', markersize=5, label='Deep')
-        # plt.yscale('log')
-        # plt.show()
+        # f_wide_err = f_wide * np.sqrt((np.sqrt(1000) / 1000)**2 + (f_err[:,0]/f[:,0])**2)
+        # f_deep_err = f_deep * np.sqrt((np.sqrt(1000) / 1000)**2 + (f_err[:,1]/f[:,1])**2)
 
-        f_wide_err = f_wide * np.sqrt((np.sqrt(1000) / 1000)**2 + (f_err[:,0]/f[:,0])**2)
-        f_deep_err = f_deep * np.sqrt((np.sqrt(1000) / 1000)**2 + (f_err[:,1]/f[:,1])**2)
-
-        p_wide = -0.5*((f_wide - f[i,0])/f_wide_err)**2
-        p_deep = -0.5*((f_deep - f[i,1])/f_deep_err)**2
+        p_wide = -0.5*((f_wide - f[:,0])/f_err[:,0])**2
+        p_deep = -0.5*((f_deep - f[:,1])/f_err[:,1])**2
 
         logp = np.sum(p_wide) + np.sum(p_deep)
 
         return -1*logp
 
-    bounds = [(-5, 5)] * 6  # bounds for each parameter
-    result = differential_evolution(objective, bounds)
+    bounds = [(-5, 0)]*6
+    result = differential_evolution(objective, bounds, maxiter=1000, disp=True)
     return result.x
 
-fit_params = fit()
+# fit_params = fit()
+
+NBINS = 20
+muv_centers = np.linspace(-20, -17, NBINS)
+xc = np.load('../data/pca/xc.npy')
+xstd = np.load('../data/pca/xstd.npy')
+f = np.load('../data/pca/f.npy')
+f_err = np.load('../data/pca/f_err.npy')
+# m1, m2, m3, b1, b2, b3 = fit_params
+m1, m2, m3, b1, b2, b3 = -1.45, -0.66, -3.76, -4.22, -3.09, -2.08  # Example values for testing
+        
+# Fit the PCA coefficients to the observed fraction of LyA+Ha emitters
+mu1 = line(muv_centers, m1, b1)
+mu2 = line(muv_centers, m2, b2)
+mu3 = line(muv_centers, m3, b3)
+
+std = np.ones(NBINS)  # Assuming constant std for simplicity
+
+y1 = np.random.normal(mu1, std, (1000, NBINS))
+y2 = np.random.normal(mu2, std, (1000, NBINS))
+y3 = np.random.normal(mu3, std, (1000, NBINS))
+
+# NOTE something is going wrong with the values here
+Y = np.stack([y1, y2, y3], axis=-2)
+X0 = T @ Y  # Transform to PCA basis
+
+lly, _, lha = X0[:,0,:], X0[:,1,:], X0[:,2,:]
+lly = lly * xstd[0] + xc[0]
+lha = lha * xstd[2] + xc[2]
+
+_p_obs_wide = p_obs(10**lly, 10**lha, muv_centers.reshape((1, 20)), mode='wide')
+_p_obs_deep = p_obs(10**lly, 10**lha, muv_centers.reshape((1, 20)), mode='deep')
+
+f_wide = np.sum(_p_obs_wide, axis=0) / 1000
+f_deep = np.sum(_p_obs_deep, axis=0) / 1000
+
+fig, axs = plt.subplots(1, 1, figsize=(12, 8), constrained_layout=True)
+
+axs.plot(muv_centers, f_wide, color='red', linestyle=':', alpha=0.5)
+axs.plot(muv_centers, f_deep, color='orange', linestyle=':', alpha=0.5)
+axs.errorbar(muv_centers, f[:,0], yerr=f_err[:,0], fmt='o', color='red', markersize=5, label='Wide')
+axs.errorbar(muv_centers, f[:,1], yerr=f_err[:,1], fmt='o', color='orange', markersize=5, label='Deep')
+axs.set_ylabel(r'$f_{\rm obs}$', fontsize=font_size)
+axs.set_xlabel(r'${\rm M}_{\rm UV}$', fontsize=font_size)
+axs.set_yscale('log')
+plt.show()
+# print("Fitted parameters:", fit_params)
