@@ -70,6 +70,8 @@ _lum_ha_wide = lum_ha[wide]
 _lum_ha_err_wide = lum_ha_err[wide]
 _fesc_wide = fescA[wide]
 _fesc_err_wide = fescA_err[wide]
+_ew_wide = ew_lya[wide]
+_ew_err_wide = ew_lya_err[wide]
 
 deep = ID==1
 _muv_deep = MUV[deep]
@@ -82,20 +84,25 @@ _lum_ha_deep = lum_ha[deep]
 _lum_ha_err_deep = lum_ha_err[deep]
 _fesc_deep = fescA[deep]
 _fesc_err_deep = fescA_err[deep]
+_ew_deep = ew_lya[deep]
+_ew_err_deep = ew_lya_err[deep]
 
 muv_wide = np.zeros(len(_muv_wide)*1000)
 lum_lya_wide = np.zeros_like(muv_wide)
 dv_wide = np.zeros_like(muv_wide)
 lum_ha_wide = np.zeros_like(muv_wide)
 fesc_wide = np.zeros_like(muv_wide)
+ew_wide = np.zeros_like(muv_wide)
 
 muv_deep = np.zeros(len(_muv_deep)*1000)
 lum_lya_deep = np.zeros_like(muv_deep)
 dv_deep = np.zeros_like(muv_deep)
 lum_ha_deep = np.zeros_like(muv_deep)
 fesc_deep = np.zeros_like(muv_deep)
+ew_deep = np.zeros_like(muv_deep)
 
-for i, (muv, muve, lly, llye, dv, dve, lha, lhae, fe, fee) in enumerate(zip(_muv_wide, _muv_err_wide, _lum_lya_wide, _lum_lya_err_wide, \
+for i, (muv, muve, ew, ewe, lly, llye, dv, dve, lha, lhae, fe, fee) in enumerate(zip(_muv_wide, _muv_err_wide, \
+                                                 _ew_wide, _ew_err_wide, _lum_lya_wide, _lum_lya_err_wide, \
                                                  _dv_lya_wide, _dv_lya_err_wide, _lum_ha_wide, _lum_ha_err_wide, \
                                                  _fesc_wide, _fesc_err_wide)):
     muv_wide[1000*i:1000*(i+1)] = np.random.normal(muv, muve, 1000)
@@ -103,12 +110,15 @@ for i, (muv, muve, lly, llye, dv, dve, lha, lhae, fe, fee) in enumerate(zip(_muv
     dv_wide[1000*i:1000*(i+1)] = np.random.normal(dv, dve, 1000)
     lum_ha_wide[1000*i:1000*(i+1)] = np.random.normal(lha, lhae, 1000)
     fesc_wide[1000*i:1000*(i+1)] = np.random.normal(fe, fee, 1000)
+    ew_wide[1000*i:1000*(i+1)] = np.random.normal(ew, ewe, 1000)
+    ew_wide[1000*i:1000*(i+1)][ew_wide[1000*i:1000*(i+1)]<=0] = np.mean(ew_wide[1000*i:1000*(i+1)])  # replace with mean
     lum_lya_wide[1000*i:1000*(i+1)][lum_lya_wide[1000*i:1000*(i+1)]<10] = np.mean(lum_lya_wide[1000*i:1000*(i+1)])  # replace with mean
     dv_wide[1000*i:1000*(i+1)][dv_wide[1000*i:1000*(i+1)]<10] = np.mean(dv_wide[1000*i:1000*(i+1)])  # replace with mean
     lum_ha_wide[1000*i:1000*(i+1)][lum_ha_wide[1000*i:1000*(i+1)]<10] = np.mean(lum_ha_wide[1000*i:1000*(i+1)])  # replace with mean
 
     
-for i, (muv, muve, lly, llye, dv, dve, lha, lhae, fe, fee) in enumerate(zip(_muv_deep, _muv_err_deep, _lum_lya_deep, _lum_lya_err_deep, \
+for i, (muv, muve, ew, ewe, lly, llye, dv, dve, lha, lhae, fe, fee) in enumerate(zip(_muv_deep, _muv_err_deep, \
+                                                 _ew_deep, _ew_err_deep, _lum_lya_deep, _lum_lya_err_deep, \
                                                  _dv_lya_deep, _dv_lya_err_deep, _lum_ha_deep, _lum_ha_err_deep,\
                                                  _fesc_deep, _fesc_err_deep)):
     muv_deep[1000*i:1000*(i+1)] = np.random.normal(muv, muve, 1000)
@@ -116,6 +126,8 @@ for i, (muv, muve, lly, llye, dv, dve, lha, lhae, fe, fee) in enumerate(zip(_muv
     dv_deep[1000*i:1000*(i+1)] = np.random.normal(dv, dve, 1000)
     lum_ha_deep[1000*i:1000*(i+1)] = np.random.normal(lha, lhae, 1000)
     fesc_deep[1000*i:1000*(i+1)] = np.random.normal(fe, fee, 1000)
+    ew_deep[1000*i:1000*(i+1)] = np.random.normal(ew, ewe, 1000)
+    ew_deep[1000*i:1000*(i+1)][ew_deep[1000*i:1000*(i+1)]<=0] = np.mean(ew_deep[1000*i:1000*(i+1)])  # replace with mean
     lum_lya_deep[1000*i:1000*(i+1)][lum_lya_deep[1000*i:1000*(i+1)]<10] = np.mean(lum_lya_deep[1000*i:1000*(i+1)])  # replace with mean
     dv_deep[1000*i:1000*(i+1)][dv_deep[1000*i:1000*(i+1)]<10] = np.mean(dv_deep[1000*i:1000*(i+1)])  # replace with mean
     lum_ha_deep[1000*i:1000*(i+1)][lum_ha_deep[1000*i:1000*(i+1)]<10] = np.mean(lum_ha_deep[1000*i:1000*(i+1)])  # replace with mean
@@ -143,23 +155,24 @@ def vcirc(muv):
     log10_mh = mh(muv)
     return (log10_mh - 5.62)/3
 
-def p_obs(lly, dv, lha, muv, mode='wide'):
+def p_obs(lly, dv, lha, muv, theta, mode='wide'):
     """
     Probability of observing a galaxy with given Lya luminosity, H-alpha luminosity, and UV magnitude.
     """
+    w1, w2, f1, f2, fh = theta
     # Convert luminosities to fluxes
     f_lya = lly / lum_flux_factor
     f_ha = lha / lum_flux_factor
     luv = 10**(0.4*(51.64 - muv))
     w_emerg = (1215.67/2.47e15)*(lly/luv)
-    f_ha_lim = 1e-18  # H-alpha flux limit in erg/s/cm^2
+    f_ha_lim = fh*2e-18  # H-alpha flux limit in erg/s/cm^2
     v_lim = 10**vcirc(muv)
     if mode == 'wide':
-        w_lim = 80
-        f_lya_lim = 2e-17
+        w_lim = 80*w1
+        f_lya_lim = f1*2e-17
     elif mode == 'deep':
-        w_lim = 8
-        f_lya_lim = 2e-18
+        w_lim = 25*w2
+        f_lya_lim = f2*2e-18
     # https://arxiv.org/pdf/2202.06642
     # https://arxiv.org/pdf/2003.12083
     # muv_lim = -18.0
@@ -205,12 +218,22 @@ XSTD = XALL.std(axis=1, keepdims=True)
 np.save('../data/pca/xstd.npy', XSTD)
 XALL0 = (XALL - XC) / XSTD
 
-T = np.load('../data/pca/A.npy')
+# T = np.load('../data/pca/A.npy')
+# coeff = np.load('../data/pca/coefficients.npy')
+I = np.array([[1,0,0],[0,1,0],[0,0,1]])
+A1 = np.array([[0,0,0],[0,0,-1],[0,1,0]])
+A2 = np.array([[0,0,1],[0,0,0],[-1,0,0]])
+A3 = np.array([[0,-1,0],[1,0,0],[0,0,0]])
+c1, c2, c3, c4 = 1, 1, 1/3, -1
+T = c1 * I + c2 * A1 + c3 * A2 + c4 * A3
 
 YALL = np.linalg.inv(T) @ XALL0
 
 XWIDE0 = XWIDE - XC
 XDEEP0 = XDEEP - XC
+
+YWIDE = np.linalg.inv(T) @ XWIDE0
+YDEEP = np.linalg.inv(T) @ XDEEP0
 
 def fit():
     """
@@ -224,6 +247,8 @@ def fit():
     muv_centers = np.linspace(-20, -17, NBINS)
     f = np.zeros((NBINS, 2))
     f_err = np.zeros((NBINS, 2))
+    ew_mean = np.zeros((NBINS, 2))
+    ew_std = np.zeros((NBINS, 2))
     lly_mean = np.zeros((NBINS, 2))
     dv_mean = np.zeros((NBINS, 2))
     lha_mean = np.zeros((NBINS, 2))
@@ -251,6 +276,10 @@ def fit():
         lly_std[i,0] = np.std(XWIDE[0, np.abs(muv_wide - muv) < 0.5])
         dv_std[i,0] = np.std(XWIDE[1, np.abs(muv_wide - muv) < 0.5])
         lha_std[i,0] = np.std(XWIDE[2, np.abs(muv_wide - muv) < 0.5])
+        fesc_mean[i, 0] = np.mean(fesc_wide[np.abs(muv_wide - muv) < 0.5])
+        fesc_std[i ,0] = np.std(fesc_wide[np.abs(muv_wide - muv) < 0.5])
+        ew_mean[i, 0] = np.mean(ew_wide[np.abs(muv_wide - muv) < 0.5])
+        ew_std[i, 0] = np.std(ew_wide[np.abs(muv_wide - muv) < 0.5])
         
         VOL_DEEP = 7.877 # 10^3 Mpc^3
         n_gal = GALDENS * VOL_DEEP
@@ -268,6 +297,8 @@ def fit():
         lha_std[i,1] = np.std(XDEEP[2, np.abs(muv_deep - muv) < 0.5])
         fesc_mean[i, 1] = np.mean(fesc_deep[np.abs(muv_deep - muv) < 0.5])
         fesc_std[i ,1] = np.std(fesc_deep[np.abs(muv_deep - muv) < 0.5])
+        ew_mean[i, 1] = np.mean(ew_deep[np.abs(muv_deep - muv) < 0.5])
+        ew_std[i, 1] = np.std(ew_deep[np.abs(muv_deep - muv) < 0.5])
 
     np.save('../data/pca/f.npy', f)
     np.save('../data/pca/f_err.npy', f_err)
@@ -279,19 +310,18 @@ def fit():
     np.save('../data/pca/lha_std.npy', lha_std)
 
     def objective(params):
-        m1, m2, m3, b1, b2, b3 = params
-        # m1, m2, m3, b1, b2, b3 = 0,0,0,0,0,0
-        
+        m1, m2, m3, b1, b2, b3, std1, std2, std3, w1, w2, f1, f2, fh = params
+        theta = [w1, w2, f1, f2, fh]
+        # m1, m2, m3, b1, b2, b3 = params
+
         # Fit the PCA coefficients to the observed fraction of LyA+Ha emitters
         mu1 = line(muv_centers, m1, b1)
         mu2 = line(muv_centers, m2, b2)
         mu3 = line(muv_centers, m3, b3)
 
-        std = np.ones(NBINS)  # Assuming constant std for simplicity
-
-        y1 = np.random.normal(mu1, std, (1000, NBINS))
-        y2 = np.random.normal(mu2, std, (1000, NBINS))
-        y3 = np.random.normal(mu3, std, (1000, NBINS))
+        y1 = np.random.normal(mu1, std1, (1000, NBINS))
+        y2 = np.random.normal(mu2, std2, (1000, NBINS))
+        y3 = np.random.normal(mu3, std3, (1000, NBINS))
 
         # NOTE something is going wrong with the values here
         Y = np.stack([y1, y2, y3], axis=-2)
@@ -302,56 +332,83 @@ def fit():
         dv = dv * xstd[1] + xc[1]
         lha = lha * xstd[2] + xc[2]
 
+        logp = 0
+
+        use_fobs = True  # Whether to use the observed fraction in the likelihood
+        # use_fobs = False  # For testing without observed fraction
+
         # calculate the distance from the expected observed fraction
-        _p_obs_wide = p_obs(10**lly, dv, 10**lha, muv_centers.reshape((1, 20)), mode='wide')
-        _p_obs_deep = p_obs(10**lly, dv, 10**lha, muv_centers.reshape((1, 20)), mode='deep')
+        _p_obs_wide = p_obs(10**lly, dv, 10**lha, muv_centers.reshape((1, 20)), theta, mode='wide')
+        _p_obs_deep = p_obs(10**lly, dv, 10**lha, muv_centers.reshape((1, 20)), theta, mode='deep')
 
-        f_wide = np.sum(_p_obs_wide, axis=0) / 1000
-        f_deep = np.sum(_p_obs_deep, axis=0) / 1000
+        if use_fobs:
 
-        # plt.plot(muv_centers, f_wide, color='red', linestyle=':', alpha=0.5)
-        # plt.plot(muv_centers, f_deep, color='orange', linestyle=':', alpha=0.5)
-        # plt.errorbar(muv_centers, f[:,0], yerr=f_err[:,0], fmt='o', color='red', markersize=5, label='Wide')
-        # plt.errorbar(muv_centers, f[:,1], yerr=f_err[:,1], fmt='o', color='orange', markersize=5, label='Deep')
-        # plt.ylabel(r'$f_{\rm obs}$', fontsize=font_size)
-        # plt.xlabel(r'${\rm M}_{\rm UV}$', fontsize=font_size)
-        # plt.yscale('log')
-        # plt.show()
+            f_wide = np.sum(_p_obs_wide, axis=0) / 1000
+            f_deep = np.sum(_p_obs_deep, axis=0) / 1000
 
-        p_wide = -0.5*((f_wide - f[:,0])/f_err[:,0])**2
-        p_deep = -0.5*((f_deep - f[:,1])/f_err[:,1])**2
+            p_wide = -0.5*((f_wide - f[:,0])/f_err[:,0])**2
+            p_deep = -0.5*((f_deep - f[:,1])/f_err[:,1])**2
 
-        logp = np.sum(p_wide) + np.sum(p_deep)
+            logp += np.sum(p_wide) + np.sum(p_deep)
 
-        _p_obs_deep = _p_obs_deep / np.sum(_p_obs_deep, axis=0, keepdims=True)
-        _p_obs_deep[np.isnan(_p_obs_deep)] = 0
-        lly_deep_mean = np.sum(lly*_p_obs_deep, axis=0)
-        lha_deep_mean = np.sum(lha*_p_obs_deep, axis=0)
-        dv_deep_mean = np.sum(dv*_p_obs_deep, axis=0)
+        use_fesc = True  # Whether to use the escape fraction in the likelihood
+        # use_fesc = False  # For testing without escape fraction
+        if use_fesc:
 
-        # p_wide = -0.5 * ((lly_wide_mean - lly_mean[:,0]) / lly_std[:,0])**2 - \
-        #     0.5 * ((lha_wide_mean - lha_mean[:,0]) / lha_std[:,0])**2 - \
-        #     0.5 * ((dv_wide_mean - dv_mean[:,0]) / dv_std[:,0])**2
-        fesc_deep_mean = (10**lly_deep_mean)/(11.4*10**lha_deep_mean)
-        # print("fesc_deep_mean", fesc_deep_mean)
-        # print("fesc_mean", fesc_mean[:,1])
-        # print("fesc_std", fesc_std[:,1])
-        # quit()
-        # TODO implement fesc into the likelihood function, 
-        # this seems to be the main point of failure
-        # TODO also add WIDE sample to the likelihood function
-        p_deep = -0.5 * ((lly_deep_mean - lly_mean[:,1]) / lly_std[:,1])**2 - \
-            0.5 * ((lha_deep_mean - lha_mean[:,1]) / lha_std[:,1])**2 - \
-            0.5 * ((dv_deep_mean - dv_mean[:,1]) / dv_std[:,1])**2 - \
-            0.5 * ((fesc_deep_mean - fesc_mean[:,1]) / fesc_std[:,1])**2
-        # logp += np.sum(p_wide) + np.sum(p_deep)
-        logp += np.sum(p_deep)
+            _p_obs_wide = _p_obs_wide / np.sum(_p_obs_wide, axis=0, keepdims=True)
+            _p_obs_wide[np.isnan(_p_obs_wide)] = 0
+
+            ew = (1215.67/2.47e15)*(10**lly)*10**(-0.4 * (51.6 - muv_centers.reshape((1, 20))))
+
+            lly_wide_mean = np.sum(lly*_p_obs_wide, axis=0)
+            lha_wide_mean = np.sum(lha*_p_obs_wide, axis=0)
+            dv_wide_mean = np.sum(dv*_p_obs_wide, axis=0)
+            ew_wide_mean = np.sum(ew*_p_obs_wide, axis=0)
+
+            _p_obs_deep = _p_obs_deep / np.sum(_p_obs_deep, axis=0, keepdims=True)
+            _p_obs_deep[np.isnan(_p_obs_deep)] = 0
+            lly_deep_mean = np.sum(lly*_p_obs_deep, axis=0)
+            lha_deep_mean = np.sum(lha*_p_obs_deep, axis=0)
+            dv_deep_mean = np.sum(dv*_p_obs_deep, axis=0)
+            ew_deep_mean = np.sum(ew*_p_obs_deep, axis=0)
+
+            fesc_wide_mean = (10**lly_wide_mean)/(11.4*10**lha_wide_mean)
+            # p_wide = -0.5 * ((lly_wide_mean - lly_mean[:,0]) / lly_std[:,0])**2 - \
+            p_wide = -0.5 * ((ew_wide_mean - ew_mean[:,0])/ew_std[:,0])**2 -\
+                0.5 * ((dv_wide_mean - dv_mean[:,0]) / dv_std[:,0])**2 - \
+                0.5 * ((fesc_wide_mean - fesc_mean[:,0]) / fesc_std[:,0])**2
+            
+            fesc_deep_mean = (10**lly_deep_mean)/(11.4*10**lha_deep_mean)
+            # p_deep = -0.5 * ((lly_deep_mean - lly_mean[:,1]) / lly_std[:,1])**2 - \
+            p_deep = -0.5 * ((ew_deep_mean - ew_mean[:,1]) / ew_std[:,1])**2 - \
+                0.5 * ((dv_deep_mean - dv_mean[:,1]) / dv_std[:,1])**2 - \
+                0.5 * ((fesc_deep_mean - fesc_mean[:,1]) / fesc_std[:,1])**2
+            
+            logp += np.sum(p_wide) + np.sum(p_deep)
+
+        # use_px = True  # Whether to use the expected observed fraction in the likelihood
+        use_px = False  # For testing without expected observed fraction
+
+        if use_px:
+            # calculate the distance from the expected observed fraction
+            # _p_obs_wide = p_obs(10**XWIDE[0], XWIDE[1], 10**XWIDE[2], muv_wide, mode='wide')
+            # _p_obs_deep = p_obs(10**XDEEP[0], XDEEP[1], 10**XDEEP[2], muv_deep, mode='deep')
+
+            p_wide = -0.5*((YWIDE[0] - line(muv_wide, m1, b1))/ std1)**2 + \
+                -0.5*((YWIDE[1] - line(muv_wide, m2, b2))/ std2)**2 + \
+                -0.5*((YWIDE[2] - line(muv_wide, m3, b3))/ std3)**2
+            p_deep = -0.5*((YDEEP[0] - line(muv_deep, m1, b1))/ std1)**2 + \
+                -0.5*((YDEEP[1] - line(muv_deep, m2, b2))/ std2)**2 + \
+                -0.5*((YDEEP[2] - line(muv_deep, m3, b3))/ std3)**2
+            
+            logp += np.sum(p_wide)/len(muv_wide) + np.sum(p_deep)/len(muv_deep)
 
         return -1*logp
 
-    bounds = [(-5, 5)]*6
-    result = differential_evolution(objective, bounds, maxiter=1000, mutation=(1,1),\
-                                     disp=True)
+    bounds = [(-1, 1)]*3 + [(-3, 3)]*3 + [(0.01, 1)]*3 + [(0.5, 1.5)]*5  # m1, m2, m3, b1, b2, b3
+    # x0 = np.array([-0.5, -0.3, 0.09, -0.76, -1.49, -0.15])
+    result = differential_evolution(objective, bounds, maxiter=500, mutation=(0.1, 1.9),\
+                                     popsize=20, disp=True, recombination=0.5)
     np.save('../data/pca/fit_params.npy', result.x)
     print("Fitted parameters:", result.x)
     return result.x
@@ -364,19 +421,20 @@ xc = np.load('../data/pca/xc.npy')
 xstd = np.load('../data/pca/xstd.npy')
 f = np.load('../data/pca/f.npy')
 f_err = np.load('../data/pca/f_err.npy')
-m1, m2, m3, b1, b2, b3 = fit_params
+m1, m2, m3, b1, b2, b3, std1, std2, std3, w1, w2, f1, f2, fh = np.load('../data/pca/fit_params.npy')
+# m1, m2, m3, b1, b2, b3, std1, std2, std3, w1, w2, f1, f2, fh = fit_params
 # m1, m2, m3, b1, b2, b3 = -1.45, -0.66, -3.76, -4.22, -3.09, -2.08  # Example values for testing
-        
+
+theta = [w1, w2, f1, f2, fh]
+
 # Fit the PCA coefficients to the observed fraction of LyA+Ha emitters
 mu1 = line(muv_centers, m1, b1)
 mu2 = line(muv_centers, m2, b2)
 mu3 = line(muv_centers, m3, b3)
 
-std = np.ones(NBINS)  # Assuming constant std for simplicity
-
-y1 = np.random.normal(mu1, std, (1000, NBINS))
-y2 = np.random.normal(mu2, std, (1000, NBINS))
-y3 = np.random.normal(mu3, std, (1000, NBINS))
+y1 = np.random.normal(mu1, std1, (1000, NBINS))
+y2 = np.random.normal(mu2, std2, (1000, NBINS))
+y3 = np.random.normal(mu3, std3, (1000, NBINS))
 
 # NOTE something is going wrong with the values here
 Y = np.stack([y1, y2, y3], axis=-2)
@@ -386,8 +444,8 @@ lly, _, lha = X0[:,0,:], X0[:,1,:], X0[:,2,:]
 lly = lly * xstd[0] + xc[0]
 lha = lha * xstd[2] + xc[2]
 
-_p_obs_wide = p_obs(10**lly, dv, 10**lha, muv_centers.reshape((1, 20)), mode='wide')
-_p_obs_deep = p_obs(10**lly, dv, 10**lha, muv_centers.reshape((1, 20)), mode='deep')
+_p_obs_wide = p_obs(10**lly, dv, 10**lha, muv_centers.reshape((1, 20)), theta, mode='wide')
+_p_obs_deep = p_obs(10**lly, dv, 10**lha, muv_centers.reshape((1, 20)), theta, mode='deep')
 
 f_wide = np.sum(_p_obs_wide, axis=0) / 1000
 f_deep = np.sum(_p_obs_deep, axis=0) / 1000

@@ -216,8 +216,8 @@ if __name__ == "__main__":
                 linestyle=styles[i])
         # plt.plot(velocity_range, np.exp(-1*tau_IGM_me), color='orange', \
         #         linestyle=styles[i])
-    plt.xlabel(r'$\Delta v$ [$km/s$]', fontsize=16)
-    plt.ylabel(r'exp$(-\tau)$', fontsize=16)
+    plt.xlabel(r'$\Delta v$ [km/s]', fontsize=font_size)
+    plt.ylabel(r'$exp(-\tau)$', fontsize=font_size)
     # plt.yscale('log')
     teXstr1 = r'$\tau_{\rm IGM}$'
     teXstr2 = rf'$z={np.around(zs, 2)}$'
