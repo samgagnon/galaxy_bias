@@ -105,8 +105,12 @@ los_dim = density_lightcone.shape[-1]
 dc_los = Planck18.comoving_distance(5.0).to('Mpc') + \
     np.linspace(0, 1.5*los_dim, los_dim) * u.Mpc
 z_los = np.array([z_at_value(Planck18.comoving_distance, d).value for d in dc_los])
+coeval_start_idx = 200 * (np.arange(los_dim)//200)
+
 central_index = np.argmin(np.abs(z_los - z))
-coords[:,-1] = coords[:,-1] + central_index - 100
+start_index = coeval_start_idx[central_index]
+
+coords[:,-1] = coords[:,-1] + start_index
 rel_idcs = np.arange(5) - 2 + central_index
 lc_rel_idcs = np.arange(55) - 52 + central_index
 
@@ -135,10 +139,17 @@ freq_Lya = (c.to(u.AA/u.s)/wave_Lya).to('Hz')
 omega_Lya = 2*np.pi*freq_Lya
 c_kps = c.to('km/s').value
 decay_factor = 6.25e8*u.s**-1
-wavelength_range = np.linspace(1200, 1220, 1000)*u.AA
+wavelength_range = np.linspace(1215.67, 1220, 1000)*u.AA
 velocity_range = c_kps*(wavelength_range/wave_Lya - 1)
 
 res_abs_list = []
+nf_list = []
+
+d_side = np.arange(200)
+# plt.pcolormesh(d_side, d_side, x_HI_rel[...,-1].T, cmap='inferno', vmin=0, vmax=1, rasterized=True)
+# plt.scatter(_x, _y)
+# plt.show()
+# quit()
 
 for __x, __y, __z, sfr, stellar_rng, muv in zip(_x, _y, _z, sfr, stellar_rng_indv, muv):
     print(f'({__x}, {__y}, {__z}) SFR: {sfr*3.14e7:.2f} Msun/yr MUV: {muv:.2f}')
@@ -158,7 +169,7 @@ for __x, __y, __z, sfr, stellar_rng, muv in zip(_x, _y, _z, sfr, stellar_rng_ind
 
     ra = (decay_factor/(4*np.pi*delta_nu(1e4*u.K))).to('').value
     prefactor = ra/np.pi
-    
+
     z_rel = wavelength_range/wave_Lya - 1 + zs
     for zb, ze, _dens, _x_HI in zip(sightline_z_edges[1:], sightline_z_edges[:-1], \
                                     sightline_density, sightline_x_HI):
@@ -171,11 +182,82 @@ for __x, __y, __z, sfr, stellar_rng, muv in zip(_x, _y, _z, sfr, stellar_rng_ind
     else:
         plt.plot(velocity_range, np.exp(-1*tau), color='orange', alpha=0.5)
 
-    res_abs_list.append(tau[0])
+    nf_list.append(x_HI_rel[__x,  __y, -1])
+    res_abs_list.append(tau[1])
 
 plt.xlabel(r'$\Delta v$ [km/s]', fontsize=font_size)
 plt.ylabel(r'$\exp(-\tau_{\rm IGM})$', fontsize=font_size)
 plt.show()
 
+nf_list = np.array(nf_list)
 res_abs_list = np.array(res_abs_list)
+
+np.save('/mnt/c/Users/sgagn/Downloads/nf_tau_igm.npy', nf_list)
 np.save('/mnt/c/Users/sgagn/Downloads/res_tau_igm.npy', res_abs_list)
+
+# from mpl_toolkits.mplot3d import Axes3D
+# # Example variables (replace these with your actual data)
+# ind = 0
+# neutral_field = slices_xHI[ind].copy()                  # 3D numpy array (Nx, Ny, Nz)
+# halo_coords = halo_coords_z_bright               # Shape: (N_halos, 3)
+# halo_masses = halo_masses_z_bright               # Shape: (N_halos,)
+# neutral_field[:,:,0:32] = np.nan
+# # mask = np.logical_and(halo_coords[:,0]<=35, halo_coords[:,1]<=35)
+# # halo_coords = halo_coords[mask]
+# # halo_masses = halo_masses[mask]
+# # Create 3D figure
+# fig = plt.figure(figsize=(10, 8))
+# ax = fig.add_subplot(111, projection='3d')
+# # ax.view_init(elev=90, azim=0)  # Top-down view (looking along the z-axis)
+# # Plot the neutral fraction field (only voxels where x_HI > 0 for visibility)
+# threshold = 0.0  # Only plot regions with neutral fraction above this
+# x, y, z = np.where(neutral_field > threshold)
+# # Normalize neutral fraction values for alpha transparency
+# alpha_vals = neutral_field[x, y, z]
+# # Scatter plot for neutral field (using transparency for lower neutral regions)
+# sc = ax.scatter(
+#     x, y, z,
+#     c=alpha_vals,
+#     cmap='inferno',
+#     alpha=0.1,                 # Global alpha plus below
+#     s=1,                       # Small dot size for field
+#     vmin=0.0, vmax=1.0
+# )
+# # Scatter plot for halos (mass-dependent size, log scaled)
+# halo_x = halo_coords[:, 0]
+# halo_y = halo_coords[:, 1]
+# halo_z = halo_coords[:, 2]
+# # halo_z = 36 # collapse onto top plane for testing
+# # Scatter plot for LOSs
+# LOS_x = LOS_z_bright[:,:,0]
+# LOS_y = LOS_z_bright[:,:,1]
+# LOS_z = LOS_z_bright[:,:,2]
+# # Log scale the halo masses to prevent huge size variations
+# halo_sizes = np.log10(halo_masses + 1e8)  # Add small value to avoid log(0)
+# # Normalize size scale (adjust multiplier for visual preference)
+# halo_sizes = 50 * (halo_sizes - np.min(halo_sizes)) / (np.max(halo_sizes) - np.min(halo_sizes) + 1e-5)
+
+# ax.scatter(
+#     halo_x, halo_y, halo_z,
+#     s=halo_sizes,
+#     c='lime',                 # Color for halos
+#     edgecolor='black',         # Optional: outline for visibility
+#     alpha=0.9
+# )
+# ax.scatter(
+#     LOS_x, LOS_y, LOS_z,
+#     s=10,
+#     c='red',                 # Color for halos
+#     edgecolor='black',         # Optional: outline for visibility
+#     alpha=0.9
+# )
+# # Plot aesthetics
+# ax.set_xlabel('X')
+# ax.set_ylabel('Y')
+# ax.set_zlabel('Z')
+# ax.set_title(f'Neutral Fraction and Halo Positions (z={ind})')
+# # ax.set_zlim(32,36)
+# # Optional colorbar for neutral fraction
+# cbar = fig.colorbar(sc, ax=ax, shrink=0.6)
+# cbar.set_label(r'$x_{\rm HI}$', fontsize=font_size)
+# plt.show()
