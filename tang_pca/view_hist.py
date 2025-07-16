@@ -19,7 +19,8 @@ rc = {"font.family" : "serif",
 plt.rcParams.update(rc) 
 plt.rcParams["font.serif"] = ["Times New Roman"] + plt.rcParams["font.serif"]
 plt.rcParams.update({'font.size': 14})
-presentation = False
+# presentation = False
+presentation = True
 if presentation:
     plt.style.use('dark_background')
     cmap = 'Blues_r'
@@ -161,8 +162,11 @@ xstd = np.load('../data/pca/xstd.npy')
 f = np.load('../data/pca/f.npy')
 f_err = np.load('../data/pca/f_err.npy')
 m1, m2, m3, b1, b2, b3, std1, std2, std3, w1, w2, f1, f2, fh = np.load('../data/pca/fit_params.npy')
-print(m1, m2, m3, b1, b2, b3, std1, std2, std3)
-print(w1, w2, f1, f2, fh)
+# print(m1, m2, m3, b1, b2, b3, std1, std2, std3)
+# print(w1, w2, f1, f2, fh)
+# print('xstd', xstd)
+# print('xc', xc)
+# quit()
 theta = [w1, w2, f1, f2, fh]
 
 muv_range = np.linspace(-22, -17, NSAMPLES)
@@ -256,7 +260,7 @@ axs[1,0].set_xticklabels([])
 def get_wc_mason(m):
     return 31 + 12 * np.tanh(4 * (m + 20.25))
 axs[2,0].pcolormesh(muv_space, ew_space, h31.T, cmap=cmap, shading='auto')
-axs[2,0].plot(muv_space, get_wc_mason(muv_space), '--', color=color1, label='Wc Mason')
+# axs[2,0].plot(muv_space, get_wc_mason(muv_space), '--', color=color1, label='Wc Mason')
 axs[2,0].set_yscale('log')
 axs[2,0].set_xlabel(r'${\rm M}_{\rm UV}$', fontsize=font_size)
 axs[2,0].set_ylabel(r'${\rm W}_{\rm emerg}^{\rm Ly\alpha}$ [$\AA$]', fontsize=font_size)
@@ -264,21 +268,21 @@ axs[2,0].text(0.05, 0.95, r'no selection', transform=axs[2,0].transAxes, fontsiz
 
 axs[0,1].pcolormesh(muv_space, dv_space, h12.T, cmap=cmap, shading='auto')
 axs[0,1].errorbar(_muv_deep, _dv_lya_deep, xerr=_muv_err_deep, yerr=_dv_lya_err_deep, fmt='o', color=color1, alpha=1.0, label='Observed')
-axs[0,1].plot(muv_space, 10**vcirc_space, '--', color=color1, label='Vcirc')
-axs[0,1].set_ylim(50, 500)
+# axs[0,1].plot(muv_space, 10**vcirc_space, '--', color=color1, label='Vcirc')
+axs[0,1].set_ylim(50, 600)
 axs[0,1].set_ylabel(r'$\Delta v$ [km/s]', fontsize=font_size)
 axs[0,1].set_xticklabels([])
 
 axs[1,1].pcolormesh(muv_space, dv_space, h22.T, cmap=cmap, shading='auto')
 axs[1,1].errorbar(_muv_wide, _dv_lya_wide, xerr=_muv_err_wide, yerr=_dv_lya_err_wide, fmt='o', color=color2, alpha=1.0, label='Observed (DV)')
-axs[1,1].plot(muv_space, 10**vcirc_space, '--', color=color1, label='Vcirc')
-axs[1,1].set_ylim(50, 500)
+# axs[1,1].plot(muv_space, 10**vcirc_space, '--', color=color1, label='Vcirc')
+axs[1,1].set_ylim(50, 600)
 axs[1,1].set_ylabel(r'$\Delta v$ [km/s]', fontsize=font_size)
 axs[1,1].set_xticklabels([])
 
 axs[2,1].pcolormesh(muv_space, dv_space, h32.T, cmap=cmap, shading='auto')
-axs[2,1].plot(muv_space, 10**vcirc_space, '--', color=color1, label='Vcirc')
-axs[2,1].set_ylim(50, 500)
+# axs[2,1].plot(muv_space, 10**vcirc_space, '--', color=color1, label='Vcirc')
+axs[2,1].set_ylim(50, 600)
 axs[2,1].set_xlabel(r'${\rm M}_{\rm UV}$', fontsize=font_size)
 axs[2,1].set_ylabel(r'$\Delta v$ [km/s]', fontsize=font_size)
 
@@ -315,5 +319,12 @@ axs[2,2].set_xlabel(r'${\rm M}_{\rm UV}$', fontsize=font_size)
 axs[0,2].set_xlim(-22, -17)
 axs[0,1].set_xlim(-22, -17)
 axs[2,2].set_xlim(-22, -17)
+
+axs[2,0].plot(-21.5, 13, color=color1, marker='*', markersize=20)
+axs[2,1].plot(-21.5, 555, color=color1, marker='*', markersize=20)
+axs[2,2].plot(-21.5, 0.04, color=color1, marker='*', markersize=20)
+
+figures_dir = '/mnt/c/Users/sgagn/Documents/phd/lyman_alpha/figures/'
+# plt.savefig(f'{figures_dir}/prop_hist.pdf', bbox_inches='tight')
 
 plt.show()

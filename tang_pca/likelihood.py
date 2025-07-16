@@ -28,17 +28,25 @@ rc = {"font.family" : "serif",
 plt.rcParams.update(rc) 
 plt.rcParams["font.serif"] = ["Times New Roman"] + plt.rcParams["font.serif"]
 plt.rcParams.update({'font.size': 14})
-plt.style.use('dark_background')
 import matplotlib as mpl
 label_size = 20
 font_size = 30
 mpl.rcParams['xtick.labelsize'] = label_size 
 mpl.rcParams['ytick.labelsize'] = label_size
 
+# presentation = False  # Set to True for presentation style
+presentation = True
+if presentation == True:
+    plt.style.use('dark_background')
+
 # from Bouwens 2021 https://arxiv.org/pdf/2102.07775
 phi_5 = 0.79
 muv_star_5 = -21.1
 alpha_5 = -1.74
+
+def get_beta_bouwens14(muv):
+    # https://arxiv.org/pdf/1306.2950
+    return -2.05 + -0.2*(muv+19.5)
 
 def schechter(muv, phi, muv_star, alpha):
     return (0.4*np.log(10))*phi*(10**(0.4*(muv_star - muv)))**(alpha+1)*\
@@ -51,7 +59,8 @@ def p_muv(muv, phi, muv_star, alpha):
 MUV, MUV_err, z, ew_lya, ew_lya_err, dv_lya, dv_lya_err, fescA, \
     fescA_err, fescB, fescB_err, ID = np.load('../data/tang24.npy').T
 
-lum_lya = (ew_lya/1215.67) * 2.47e15 * 10**(0.4*(51.6 - MUV))
+beta = get_beta_bouwens14(MUV)
+lum_lya = (ew_lya/1215.67) * 2.47e15 * 10**(0.4*(51.6 - MUV)) * (1215.6/1500) ** (beta + 2)
 lum_lya_err = lum_lya*np.sqrt((ew_lya_err/ew_lya)**2 + (np.exp(-0.4*np.log(10)*MUV_err)/MUV)**2)
 
 lum_ha = lum_lya / 11.4 / fescA
@@ -60,6 +69,7 @@ lum_ha_err = lum_ha*np.sqrt((lum_lya_err/lum_lya)**2 + (fescA_err/fescA)**2)
 lum_flux_factor = 4*np.pi*(Planck18.luminosity_distance(5.0).to('cm').value)**2
 
 wide = ID==0
+# print(np.sum(wide), 'wide galaxies')
 _muv_wide = MUV[wide]
 _muv_err_wide = MUV_err[wide]
 _dv_lya_wide = dv_lya[wide]
@@ -74,6 +84,8 @@ _ew_wide = ew_lya[wide]
 _ew_err_wide = ew_lya_err[wide]
 
 deep = ID==1
+# print(np.sum(deep), 'deep galaxies')
+# quit()
 _muv_deep = MUV[deep]
 _muv_err_deep = MUV_err[deep]
 _dv_lya_deep = dv_lya[deep]
@@ -358,7 +370,9 @@ def fit():
             _p_obs_wide = _p_obs_wide / np.sum(_p_obs_wide, axis=0, keepdims=True)
             _p_obs_wide[np.isnan(_p_obs_wide)] = 0
 
-            ew = (1215.67/2.47e15)*(10**lly)*10**(-0.4 * (51.6 - muv_centers.reshape((1, 20))))
+            beta = get_beta_bouwens14(muv_centers.reshape((1, 20)))
+            ew = (1215.67/2.47e15)*(10**lly)*10**(-0.4 * (51.6 - muv_centers.reshape((1, 20)))) \
+                 * (1215.6/1500) ** (-1*beta - 2)
 
             lly_wide_mean = np.sum(lly*_p_obs_wide, axis=0)
             lha_wide_mean = np.sum(lha*_p_obs_wide, axis=0)
@@ -413,7 +427,7 @@ def fit():
     print("Fitted parameters:", result.x)
     return result.x
 
-fit_params = fit()
+# fit_params = fit()
 
 NBINS = 20
 muv_centers = np.linspace(-20, -17, NBINS)
@@ -424,6 +438,12 @@ f_err = np.load('../data/pca/f_err.npy')
 m1, m2, m3, b1, b2, b3, std1, std2, std3, w1, w2, f1, f2, fh = np.load('../data/pca/fit_params.npy')
 # m1, m2, m3, b1, b2, b3, std1, std2, std3, w1, w2, f1, f2, fh = fit_params
 # m1, m2, m3, b1, b2, b3 = -1.45, -0.66, -3.76, -4.22, -3.09, -2.08  # Example values for testing
+print(xc, xstd)
+print(m1, m2, m3, b1, b2, b3, std1, std2, std3, w1, w2, f1, f2, fh)
+print(T)
+print(np.linalg.inv(T))
+quit()
+
 
 theta = [w1, w2, f1, f2, fh]
 
@@ -450,14 +470,17 @@ _p_obs_deep = p_obs(10**lly, dv, 10**lha, muv_centers.reshape((1, 20)), theta, m
 f_wide = np.sum(_p_obs_wide, axis=0) / 1000
 f_deep = np.sum(_p_obs_deep, axis=0) / 1000
 
-fig, axs = plt.subplots(1, 1, figsize=(12, 8), constrained_layout=True)
+fig, axs = plt.subplots(1, 1, figsize=(8, 6), constrained_layout=True)
 
-axs.plot(muv_centers, f_wide, color='red', linestyle=':', alpha=0.5)
+axs.plot(muv_centers, f_wide, color='red', linestyle=':', alpha=0.5, label='This Work')
 axs.plot(muv_centers, f_deep, color='orange', linestyle=':', alpha=0.5)
-axs.errorbar(muv_centers, f[:,0], yerr=f_err[:,0], fmt='o', color='red', markersize=5, label='Wide')
-axs.errorbar(muv_centers, f[:,1], yerr=f_err[:,1], fmt='o', color='orange', markersize=5, label='Deep')
+axs.errorbar(muv_centers, f[:,0], yerr=f_err[:,0], fmt='o', color='red', markersize=5, label='MUSE-Wide')
+axs.errorbar(muv_centers, f[:,1], yerr=f_err[:,1], fmt='o', color='orange', markersize=5, label='MUSE-Deep')
 axs.set_ylabel(r'$f_{\rm obs}$', fontsize=font_size)
 axs.set_xlabel(r'${\rm M}_{\rm UV}$', fontsize=font_size)
 axs.set_yscale('log')
+axs.legend(fontsize=font_size, loc='lower left')
+
+# figures_dir = '/mnt/c/Users/sgagn/Documents/phd/lyman_alpha/figures/'
+# plt.savefig(f'{figures_dir}/fobs.pdf', bbox_inches='tight')
 plt.show()
-# print("Fitted parameters:", fit_params)

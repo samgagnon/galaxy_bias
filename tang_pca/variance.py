@@ -19,12 +19,18 @@ rc = {"font.family" : "serif",
 plt.rcParams.update(rc) 
 plt.rcParams["font.serif"] = ["Times New Roman"] + plt.rcParams["font.serif"]
 plt.rcParams.update({'font.size': 14})
-plt.style.use('dark_background')
 import matplotlib as mpl
 label_size = 20
 font_size = 30
 mpl.rcParams['xtick.labelsize'] = label_size 
 mpl.rcParams['ytick.labelsize'] = label_size
+presentation = True
+# presentation = False
+if presentation:
+    plt.style.use('dark_background')
+    cmap = 'Blues_r'
+else:
+    cmap = 'hot_r'
 
 # from Bouwens 2021 https://arxiv.org/pdf/2102.07775
 phi_5 = 0.79
@@ -65,13 +71,13 @@ theta = [w1, w2, f1, f2, fh]
 #     np.sqrt(np.abs(A[2,0])*std1**2 + np.abs(A[2,1])*std2**2 + np.abs(A[2,2])*std3**2)*xstd[2], \
 #     (A[2,0]*b1 + A[2,1]*b2 + A[2,2]*b3)*xstd[2] + xc[2])
 # quit()
-NSAMPLES = 10000
+NSAMPLES = 100000
 muv_space = np.linspace(-24, -16, NSAMPLES)
 p_muv = schechter(muv_space, phi_5, muv_star_5, alpha_5)
 p_muv /= np.sum(p_muv)  # Normalize the probability distribution
 muv_sample = np.random.choice(muv_space, p=p_muv, size=NSAMPLES)
-muv_space = muv_sample
-hist_res = 25
+# muv_space = muv_sample
+hist_res = 50
 muv_side = np.linspace(-24, -16, hist_res)
 lya_side = np.linspace(40, 45, hist_res)
 lha_side = np.linspace(40, 45, hist_res)
@@ -86,60 +92,62 @@ y3 = np.random.normal(mu3, std3, NSAMPLES)
 Y = np.vstack((y1, y2, y3))
 X = (A @ Y) * xstd + xc
 
-fig, axs = plt.subplots(3, 3, figsize=(10, 15), constrained_layout=True)
+fig, axs = plt.subplots(3, 3, figsize=(15, 10), constrained_layout=True)
 
 axs[0,0].hist2d(muv_space, X[0], bins=(muv_side, lya_side),
-                            cmap='Blues_r', cmin=1, rasterized=True)
+                            cmap=cmap, cmin=1, rasterized=True)
 # axs[0,0].scatter(muv_space, X[0], s=1, color='cyan')
 axs[0,0].set_ylabel(r'$\log_{10}L_{\rm Ly\alpha}$ [erg/s]', fontsize=font_size)
 axs[0,0].set_xticklabels([])
 
 axs[0,1].hist2d(X[1], X[0], bins=(dv_side, lya_side),
-                            cmap='Blues_r', cmin=1, rasterized=True)
+                            cmap=cmap, cmin=1, rasterized=True)
 # axs[0,1].scatter(X[1], X[0], s=1, color='cyan')
 axs[0,1].set_yticklabels([])
 axs[0,1].set_xticklabels([])
 
 axs[0,2].hist2d(X[2], X[0], bins=(lha_side, lya_side),
-                            cmap='Blues_r', cmin=1, rasterized=True)
+                            cmap=cmap, cmin=1, rasterized=True)
 # axs[0,2].scatter(X[2], X[0], s=1, color='cyan')
 axs[0,2].set_yticklabels([])
 axs[0,2].set_xticklabels([])
 
 axs[1,0].hist2d(muv_space, X[1], bins=(muv_side, dv_side),
-                            cmap='Blues_r', cmin=1, rasterized=True)
+                            cmap=cmap, cmin=1, rasterized=True)
 # axs[1,0].scatter(muv_space, X[1], s=1, color='cyan')
 axs[1,0].set_ylabel(r'$\Delta v$ [km/s]', fontsize=font_size)
 axs[1,0].set_xticklabels([])
 
 axs[1,1].hist2d(X[1], X[1], bins=(dv_side, dv_side),
-                            cmap='Blues_r', cmin=1, rasterized=True)
+                            cmap=cmap, cmin=1, rasterized=True)
 # axs[1,1].scatter(X[1], X[1], s=1, color='cyan')
 axs[1,1].set_yticklabels([])
 axs[1,1].set_xticklabels([])
 
 axs[1,2].hist2d(X[2], X[1], bins=(lha_side, dv_side),
-                            cmap='Blues_r', cmin=1, rasterized=True)
+                            cmap=cmap, cmin=1, rasterized=True)
 # axs[1,2].scatter(X[2], X[1], s=1, color='cyan')
 axs[1,2].set_yticklabels([])
 axs[1,2].set_xticklabels([])
 
 axs[2,0].hist2d(muv_space, X[2], bins=(muv_side, lha_side),
-                            cmap='Blues_r', cmin=1, rasterized=True)
+                            cmap=cmap, cmin=1, rasterized=True)
 # axs[2,0].scatter(muv_space, X[2], s=1, color='cyan')
 axs[2,0].set_ylabel(r'$\log_{10}L_{\rm H\alpha}$ [erg/s]', fontsize=font_size)
 axs[2,0].set_xlabel(r'${\rm M}_{\rm UV}$', fontsize=font_size)
 
 axs[2,1].hist2d(X[1], X[2], bins=(dv_side, lha_side),
-                            cmap='Blues_r', cmin=1, rasterized=True)
+                            cmap=cmap, cmin=1, rasterized=True)
 # axs[2,1].scatter(X[1], X[2], s=1, color='cyan')
 axs[2,1].set_yticklabels([])
 axs[2,1].set_xlabel(r'$\Delta v$ [km/s]', fontsize=font_size)
 
 axs[2,2].hist2d(X[2], X[2], bins=(lha_side, lha_side),
-                            cmap='Blues_r', cmin=1, rasterized=True)
+                            cmap=cmap, cmin=1, rasterized=True)
 # axs[2,2].scatter(X[2], X[2], s=1, color='cyan')
 axs[2,2].set_yticklabels([])
 axs[2,2].set_xlabel(r'$\log_{10}L_{\rm H\alpha}$ [erg/s]', fontsize=font_size)
 
+figures_dir = '/mnt/c/Users/sgagn/Documents/phd/lyman_alpha/figures/'
+# plt.savefig(f'{figures_dir}/prop_var.pdf', bbox_inches='tight')
 plt.show()
