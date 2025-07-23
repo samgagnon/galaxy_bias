@@ -59,6 +59,10 @@ def p_muv(muv, phi, muv_star, alpha):
 MUV, MUV_err, z, ew_lya, ew_lya_err, dv_lya, dv_lya_err, fescA, \
     fescA_err, fescB, fescB_err, ID = np.load('../data/tang24.npy').T
 
+id = np.argmin(MUV)
+print(MUV[id], MUV_err[id], z[id], ew_lya[id], ew_lya_err[id], dv_lya[id], dv_lya_err[id], fescA[id], fescA_err[id])
+quit()
+
 beta = get_beta_bouwens14(MUV)
 lum_lya = (ew_lya/1215.67) * 2.47e15 * 10**(0.4*(51.6 - MUV)) * (1215.6/1500) ** (beta + 2)
 lum_lya_err = lum_lya*np.sqrt((ew_lya_err/ew_lya)**2 + (np.exp(-0.4*np.log(10)*MUV_err)/MUV)**2)

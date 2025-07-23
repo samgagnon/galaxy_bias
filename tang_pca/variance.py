@@ -60,23 +60,12 @@ xc = np.load('../data/pca/xc.npy')
 xstd = np.load('../data/pca/xstd.npy')
 m1, m2, m3, b1, b2, b3, std1, std2, std3, w1, w2, f1, f2, fh = np.load('../data/pca/fit_params.npy')
 theta = [w1, w2, f1, f2, fh]
-# print(A, xc, xstd, m1, m2, m3, b1, b2, b3, std1, std2, std3)
-# print((A[0,0]*m1 + A[0,1]*m2 + A[0,2]*m3)*xstd[0], \
-#     np.sqrt(np.abs(A[0,0])*std1**2 + np.abs(A[0,1])*std2**2 + np.abs(A[0,2])*std3**2)*xstd[0], \
-#     (A[0,0]*b1 + A[0,1]*b2 + A[0,2]*b3)*xstd[0] + xc[0])
-# print((A[1,0]*m1 + A[1,1]*m2 + A[1,2]*m3)*xstd[1], \
-#     np.sqrt(np.abs(A[1,0])*std1**2 + np.abs(A[1,1])*std2**2 + np.abs(A[1,2])*std3**2)*xstd[1], \
-#     (A[1,0]*b1 + A[1,1]*b2 + A[1,2]*b3)*xstd[1] + xc[1])
-# print((A[2,0]*m1 + A[2,1]*m2 + A[2,2]*m3)*xstd[2], \
-#     np.sqrt(np.abs(A[2,0])*std1**2 + np.abs(A[2,1])*std2**2 + np.abs(A[2,2])*std3**2)*xstd[2], \
-#     (A[2,0]*b1 + A[2,1]*b2 + A[2,2]*b3)*xstd[2] + xc[2])
-# quit()
 NSAMPLES = 100000
 muv_space = np.linspace(-24, -16, NSAMPLES)
 p_muv = schechter(muv_space, phi_5, muv_star_5, alpha_5)
 p_muv /= np.sum(p_muv)  # Normalize the probability distribution
 muv_sample = np.random.choice(muv_space, p=p_muv, size=NSAMPLES)
-# muv_space = muv_sample
+muv_space = muv_sample
 hist_res = 50
 muv_side = np.linspace(-24, -16, hist_res)
 lya_side = np.linspace(40, 45, hist_res)
