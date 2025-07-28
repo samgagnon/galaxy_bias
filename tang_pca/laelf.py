@@ -141,10 +141,9 @@ emu_popt, _ = curve_fit(lambda x, a, b: a * x + b, muv_t24, muv_emu)
 dex_popt, _ = curve_fit(lambda x, a, b: a * x + b, muv_t24, muv_dex)
 
 NSAMPLES = 1000000
-WMIN = 25
 
 # Generate a sample of Muv values
-muv_space = np.linspace(-23, -16, NSAMPLES)
+muv_space = np.linspace(-20.75, -18.75, NSAMPLES)
 p_muv = schechter(muv_space, phi_5, muv_star_5, alpha_5)
 n_gal = np.trapezoid(p_muv, x=muv_space)*1e-3 # galaxy number density in Mpc^-3
 EFFECTIVE_VOLUME = NSAMPLES/n_gal  # Mpc3, for normalization
@@ -154,6 +153,8 @@ muv_sample = np.random.choice(muv_space, size=NSAMPLES, p=p_muv)
 
 # Mason et al. (2018) model
 w_m18, emit_bool_m18 = mason2018(muv_sample)
+f10_m18 = np.sum(w_m18 > 10) / NSAMPLES
+f25_m18 = np.sum(w_m18 > 25) / NSAMPLES
 log10lya_m18 = np.log10(w_m18*(2.47e15/1215.67)*(1500/1215.67)**(get_beta_bouwens14(muv_sample[emit_bool_m18])+2)*\
     10**(0.4*(51.6-muv_sample[emit_bool_m18])))
 heights_m18, bins_m18 = np.histogram(log10lya_m18, bins=bin_edges, density=False)
@@ -168,6 +169,8 @@ logphi_low_m18 = np.abs(logphi_m18 - np.log10(heights_m18 - height_err_m18))
 w_t24 = np.random.lognormal(mean=np.log(mean_t24(muv_sample)),
                             sigma=sigma_t24(muv_sample),
                             size=NSAMPLES)
+f10_t24 = np.sum(w_t24 > 10) / NSAMPLES
+f25_t24 = np.sum(w_t24 > 25) / NSAMPLES
 log10lya_t24 = np.log10(w_t24*(2.47e15/1215.67)*(1215.67/1500)**(get_beta_bouwens14(muv_sample)+2)*\
     10**(0.4*(51.6-muv_sample)))
 heights_t24, bins_t24 = np.histogram(log10lya_t24, bins=bin_edges, density=False)
@@ -204,8 +207,15 @@ u1, u2, u3 = np.random.normal(m1*(muv_sample + 18.5) + b1, std1, NSAMPLES), \
 log10lya, dv, log10ha = (A @ np.array([u1, u2, u3]))* xstd + xc
 w_sgh = (1215.67/2.47e15)*(10**log10lya)*10**(-0.4*(51.6-muv_sample))*\
     (1215.67/1500)**(-1*get_beta_bouwens14(muv_sample)-2)
+f10_sgh = np.sum(w_sgh > 10) / NSAMPLES
+f25_sgh = np.sum(w_sgh > 25) / NSAMPLES
 
-ewpdf = False  # Set to True to compute the EW PDF
+print(f10_m18, f25_m18)
+print(f10_t24, f25_t24)
+print(f10_sgh, f25_sgh)
+
+# ewpdf = False  # Set to True to compute the EW PDF
+ewpdf = True
 if ewpdf == True:
 
     # EW PDF
@@ -250,9 +260,9 @@ if ewpdf == True:
     ax.legend(fontsize=int(font_size/1.5), loc='upper right')
     ax.set_yscale('log')
     ax.set_xlim(40, 1000)
-    # plt.show()
-    figdir = '/mnt/c/Users/sgagn/Documents/phd/lyman_alpha/figures/'
-    plt.savefig(f'{figdir}/ew_pdf.pdf', bbox_inches='tight')
+    plt.show()
+    # figdir = '/mnt/c/Users/sgagn/Documents/phd/lyman_alpha/figures/'
+    # plt.savefig(f'{figdir}/ew_pdf.pdf', bbox_inches='tight')
     quit()
 
 heights_sgh, bins_sgh = np.histogram(log10lya, bins=bin_edges, density=False)

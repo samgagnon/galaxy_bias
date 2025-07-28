@@ -36,36 +36,6 @@ else:
     color4 = 'orange'
     textcolor = 'black'
 
-def get_stellar_mass(halo_masses, stellar_rng):
-    sigma_star = 0.5
-    mp1 = 1e10
-    mp2 = 2.8e11
-    M_turn = 10**(8.7)
-    a_star = 0.5
-    a_star2 = -0.61
-    f_star10 = 0.05
-    omega_b = Planck18.Ob0
-    omega_m = Planck18.Om0
-    baryon_frac = omega_b/omega_m
-    
-    high_mass_turnover = ((mp2/mp1)**a_star + (mp2/mp1)**a_star2)/((halo_masses/mp2)**(-1*a_star)+(halo_masses/mp2)**(-1*a_star2))
-    stoc_adjustment_term = 0.5*sigma_star**2
-    low_mass_turnover = np.exp(-1*M_turn/halo_masses + stellar_rng*sigma_star - stoc_adjustment_term)
-    stellar_mass = f_star10 * baryon_frac * halo_masses * (high_mass_turnover * low_mass_turnover)
-    return stellar_mass
-
-def get_sfr(stellar_mass, sfr_rng, z):
-    sigma_sfr_lim = 0.19
-    sigma_sfr_idx = -0.12
-    t_h = 1/Planck18.H(z).to('s**-1').value
-    t_star = 0.5
-    sfr_mean = stellar_mass / (t_star * t_h)
-    sigma_sfr = sigma_sfr_idx * np.log10(stellar_mass/1e10) + sigma_sfr_lim
-    sigma_sfr[sigma_sfr < sigma_sfr_lim] = sigma_sfr_lim
-    stoc_adjustment_term = sigma_sfr * sigma_sfr / 2. # adjustment to the mean for lognormal scatter
-    sfr_sample = sfr_mean * np.exp(sfr_rng*sigma_sfr - stoc_adjustment_term)
-    return sfr_sample
-
 def get_muv(sfr):
     """
     Converts star formation rate to
@@ -196,6 +166,55 @@ bin_edges[1:-1] = 0.5*(lum[1:] + lum[:-1])
 bin_edges[-1] = lum[-1] + 0.5*(lum[-1] - lum[-2])
 
 hdf = h5py.File('../data/id_2001.h5', 'r')
+vp_dict = dict(hdf['simulation_parameters']['varying_params'].attrs)
+p_dict = dict(hdf['simulation_parameters']['astro_params'].attrs)
+
+aesc = vp_dict['ALPHA_ESC']
+fesc10 = 10**vp_dict['F_ESC10']
+variable = vp_dict['F_STAR10']
+L_X = vp_dict['L_X']
+M_turn = vp_dict['M_TURN']
+nu_X = vp_dict['NU_X_THRESH']
+s8 = vp_dict['SIGMA_8']
+sig_sfr_lim = vp_dict['SIGMA_SFR_LIM']
+seed = vp_dict['random_seed']
+tstar = vp_dict['t_STAR']
+Ng = p_dict['POP2_ION']
+sig_sfr_idx = p_dict['SIGMA_SFR_INDEX'] 
+sig_star = p_dict['SIGMA_STAR']
+M_pivot = 10**p_dict['UPPER_STELLAR_TURNOVER_MASS'] # [Msun] 
+astar = p_dict['ALPHA_STAR']
+astar2 = p_dict['UPPER_STELLAR_TURNOVER_INDEX'] 
+fstar10 = 10**p_dict['F_STAR10'] 
+
+def get_stellar_mass(halo_masses, stellar_rng):
+    sigma_star = sig_star
+    mp1 = 1e10
+    mp2 = M_pivot
+    a_star = astar
+    a_star2 = astar2
+    f_star10 = fstar10
+    omega_b = Planck18.Ob0
+    omega_m = Planck18.Om0
+    baryon_frac = omega_b/omega_m
+    
+    high_mass_turnover = ((mp2/mp1)**a_star + (mp2/mp1)**a_star2)/((halo_masses/mp2)**(-1*a_star)+(halo_masses/mp2)**(-1*a_star2))
+    stoc_adjustment_term = 0.5*sigma_star**2
+    low_mass_turnover = np.exp(-1*M_turn/halo_masses + stellar_rng*sigma_star - stoc_adjustment_term)
+    stellar_mass = f_star10 * baryon_frac * halo_masses * (high_mass_turnover * low_mass_turnover)
+    return stellar_mass
+
+def get_sfr(stellar_mass, sfr_rng, z):
+    sigma_sfr_lim = sig_sfr_lim
+    sigma_sfr_idx = -0.12
+    t_h = 1/Planck18.H(z).to('s**-1').value
+    t_star = tstar
+    sfr_mean = stellar_mass / (t_star * t_h)
+    sigma_sfr = sigma_sfr_idx * np.log10(stellar_mass/1e10) + sigma_sfr_lim
+    sigma_sfr[sigma_sfr < sigma_sfr_lim] = sigma_sfr_lim
+    stoc_adjustment_term = sigma_sfr * sigma_sfr / 2. # adjustment to the mean for lognormal scatter
+    sfr_sample = sfr_mean * np.exp(sfr_rng*sigma_sfr - stoc_adjustment_term)
+    return sfr_sample
 
 z = 5.7
 mh_min = 5e8 # Msol
@@ -204,13 +223,14 @@ density_lightcone = hdf['lightcones']['density'][:]
 x_HI_lightcone = hdf['lightcones']['x_HI'][:]
 lightcone_redshifts = dict(hdf['lightcones'].attrs)['lightcone_redshifts']
 halo_data_redshifts = np.array(list(hdf['halo_data'].keys()), dtype=float)
+los_z = lightcone_redshifts
 
-z = halo_data_redshifts[np.argmin(halo_data_redshifts - z)]
+z_halo_list = halo_data_redshifts[np.argmin(halo_data_redshifts - z)]
 
-masses = hdf['halo_data'][str(z)]['halo_masses'][:]
-coords = hdf['halo_data'][str(z)]['halo_coords'][:]
-sfr_rng_indv = hdf['halo_data'][str(z)]['sfr_rng'][:]
-stellar_rng_indv = hdf['halo_data'][str(z)]['star_rng'][:]
+masses = hdf['halo_data'][str(z_halo_list)]['halo_masses'][:]
+coords = hdf['halo_data'][str(z_halo_list)]['halo_coords'][:]
+sfr_rng_indv = hdf['halo_data'][str(z_halo_list)]['sfr_rng'][:]
+stellar_rng_indv = hdf['halo_data'][str(z_halo_list)]['star_rng'][:]
 
 coords = coords[masses > mh_min]
 sfr_rng_indv = sfr_rng_indv[masses > mh_min]
@@ -221,25 +241,26 @@ los_dim = density_lightcone.shape[-1]
 
 dc_los = Planck18.comoving_distance(5.0).to('Mpc') + \
     np.linspace(0, 1.5*los_dim, los_dim) * u.Mpc
-z_los = np.array([z_at_value(Planck18.comoving_distance, d).value for d in dc_los])
-coeval_start_idx = 200 * (np.arange(los_dim)//200)
+# los_z = np.array([z_at_value(Planck18.comoving_distance, d).value for d in dc_los])
+n_coeval_centers = int(np.rint(2000 / 200))
+coeval_start_idcs = np.array(list(range(n_coeval_centers))) * 200
+coeval_start_z = los_z[coeval_start_idcs]
+z_adjust = coeval_start_idcs[np.argmax(coeval_start_z[coeval_start_z<z])]
 
-central_index = np.argmin(np.abs(z_los - z))
-start_index = coeval_start_idx[central_index]
+_x = np.concatenate([coords.T[0], coords.T[0]], axis=0)
+_y = np.concatenate([coords.T[1], coords.T[1]], axis=0)
+_z = np.concatenate([coords.T[2], coords.T[2] + z_adjust], axis=0)
 
-coords[:,-1] = coords[:,-1] + start_index
-rel_idcs = np.arange(5) - 2 + central_index
-lc_rel_idcs = np.arange(55) - 52 + central_index
-
-_x = coords.T[0]
-_y = coords.T[1]
-_z = coords.T[2]
+masses = np.concatenate([masses, masses], axis=0)
+stellar_rng_indv = np.concatenate([stellar_rng_indv, stellar_rng_indv], axis=0)
+sfr_rng_indv = np.concatenate([sfr_rng_indv, sfr_rng_indv], axis=0)
+z = los_z[_z]
 
 sfr = get_sfr(get_stellar_mass(masses, stellar_rng_indv), sfr_rng_indv, z)
 muv = get_muv(sfr)
 
 NSAMPLES = len(muv)
-EFFECTIVE_VOLUME = 300**3
+EFFECTIVE_VOLUME = 2*300**3
 
 # Mason et al. (2018) model
 w_m18, emit_bool_m18 = mason2018(muv)
@@ -274,15 +295,27 @@ A2 = np.array([[0,0,1],[0,0,0],[-1,0,0]])
 A3 = np.array([[0,-1,0],[1,0,0],[0,0,0]])
 c1, c2, c3, c4 = 1, 1, 1/3, -1
 A = c1 * I + c2 * A1 + c3 * A2 + c4 * A3
-xc = np.load('../data/pca/xc.npy')
-xstd = np.load('../data/pca/xstd.npy')
-m1, m2, m3, b1, b2, b3, std1, std2, std3, w1, w2, f1, f2, fh = np.load('../data/pca/fit_params.npy')
+# xc = np.load('../data/pca/xc.npy')
+# xstd = np.load('../data/pca/xstd.npy')
+xc = np.array([[42.47, 199.61, 42.03]]).T
+xstd = np.array([[0.4222, 99.4, 0.394]]).T
+m1, m2, m3, b1, b2, b3, std1, std2, std3 = 6e-3, -0.54, -0.35, -0.34, -0.95, -0.24, 0.56, 0.5, 0.19
+# m1, m2, m3, b1, b2, b3, std1, std2, std3, w1, w2, f1, f2, fh = np.load('../data/pca/fit_params.npy')
 u1, u2, u3 = np.random.normal(m1*(muv + 18.5) + b1, std1, NSAMPLES), \
             np.random.normal(m2*(muv + 18.5) + b2, std2, NSAMPLES), \
             np.random.normal(m3*(muv + 18.5) + b3, std3, NSAMPLES)
 log10lya, dv, log10ha = (A @ np.array([u1, u2, u3]))* xstd + xc
 w_sgh = (1215.67/2.47e15)*(10**log10lya)*10**(-0.4*(51.6-muv))*\
     (1215.67/1500)**(-1*get_beta_bouwens14(muv)-2)
+
+# d_side = np.linspace(0, 300, 200)
+# plt.pcolormesh(d_side, d_side, 1-x_HI_lightcone[:,:,0].T, cmap='inferno')
+# # plt.imshow(1 - x_HI_lightcone[:, :, 0].T, origin='lower', cmap='inferno')
+# plt.scatter(1.5*_x[(z<5.001)*(log10lya>41)], \
+#             1.5*_y[(z<5.001)*(log10lya>41)], c='lime', marker='x', s=40)
+# plt.colorbar(label='Neutral Hydrogen Fraction')
+# plt.show()
+# quit()
 
 heights_sgh, bins_sgh = np.histogram(log10lya, bins=bin_edges, density=False)
 bin_widths = bins_sgh[1:]-bins_sgh[:-1]
@@ -292,9 +325,15 @@ logphi_sgh = np.log10(heights_sgh)
 logphi_up_sgh = np.abs(np.log10(heights_sgh + height_err_sgh) - logphi_sgh)
 logphi_low_sgh = np.abs(logphi_sgh - np.log10(heights_sgh - height_err_sgh))
 
+
+
 # z, sfr, log10lya_sgh, log10lya_m18, log10lya_t24
-out = np.array([z, sfr, log10lya, log10lya_m18, log10lya_t24])
+print(len(z), len(sfr), len(log10lya), len(log10lya_m18), len(log10lya_t24))
+# out = np.array([_x, _y, z, sfr, log10lya, log10lya_m18, log10lya_t24, masses])
+out = np.array([_x, _y, z, sfr, log10lya, u1, u2, u3, log10lya_m18, log10lya_t24, masses])
 np.save('/mnt/c/Users/sgagn/Downloads/output.npy', out)
+# inp = np.load('/mnt/c/Users/sgagn/Downloads/output.npy')
+quit()
 
 fig, ax = plt.subplots(figsize=(6, 6.5), constrained_layout=True)
 ax.errorbar(lum, logphi, yerr=[logphi_low, logphi_up], 

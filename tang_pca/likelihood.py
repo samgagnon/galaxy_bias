@@ -34,8 +34,8 @@ font_size = 30
 mpl.rcParams['xtick.labelsize'] = label_size 
 mpl.rcParams['ytick.labelsize'] = label_size
 
-# presentation = False  # Set to True for presentation style
-presentation = True
+presentation = False  # Set to True for presentation style
+# presentation = True
 if presentation == True:
     plt.style.use('dark_background')
 
@@ -59,9 +59,9 @@ def p_muv(muv, phi, muv_star, alpha):
 MUV, MUV_err, z, ew_lya, ew_lya_err, dv_lya, dv_lya_err, fescA, \
     fescA_err, fescB, fescB_err, ID = np.load('../data/tang24.npy').T
 
-id = np.argmin(MUV)
-print(MUV[id], MUV_err[id], z[id], ew_lya[id], ew_lya_err[id], dv_lya[id], dv_lya_err[id], fescA[id], fescA_err[id])
-quit()
+# id = np.argmin(MUV)
+# print(MUV[id], MUV_err[id], z[id], ew_lya[id], ew_lya_err[id], dv_lya[id], dv_lya_err[id], fescA[id], fescA_err[id])
+# quit()
 
 beta = get_beta_bouwens14(MUV)
 lum_lya = (ew_lya/1215.67) * 2.47e15 * 10**(0.4*(51.6 - MUV)) * (1215.6/1500) ** (beta + 2)
@@ -445,7 +445,9 @@ m1, m2, m3, b1, b2, b3, std1, std2, std3, w1, w2, f1, f2, fh = np.load('../data/
 print(xc, xstd)
 print(m1, m2, m3, b1, b2, b3, std1, std2, std3, w1, w2, f1, f2, fh)
 print(T)
-print(np.linalg.inv(T))
+# print(np.linalg.inv(T))
+# print(w1, w2, f1, f2, fh)
+
 quit()
 
 
@@ -474,7 +476,7 @@ _p_obs_deep = p_obs(10**lly, dv, 10**lha, muv_centers.reshape((1, 20)), theta, m
 f_wide = np.sum(_p_obs_wide, axis=0) / 1000
 f_deep = np.sum(_p_obs_deep, axis=0) / 1000
 
-fig, axs = plt.subplots(1, 1, figsize=(8, 6), constrained_layout=True)
+fig, axs = plt.subplots(figsize=(6, 6), constrained_layout=True)
 
 axs.plot(muv_centers, f_wide, color='red', linestyle=':', alpha=0.5, label='This Work')
 axs.plot(muv_centers, f_deep, color='orange', linestyle=':', alpha=0.5)
@@ -483,8 +485,8 @@ axs.errorbar(muv_centers, f[:,1], yerr=f_err[:,1], fmt='o', color='orange', mark
 axs.set_ylabel(r'$f_{\rm obs}$', fontsize=font_size)
 axs.set_xlabel(r'${\rm M}_{\rm UV}$', fontsize=font_size)
 axs.set_yscale('log')
-axs.legend(fontsize=font_size, loc='lower left')
+axs.legend(fontsize=int(font_size/1.5), loc='lower left')
 
-# figures_dir = '/mnt/c/Users/sgagn/Documents/phd/lyman_alpha/figures/'
-# plt.savefig(f'{figures_dir}/fobs.pdf', bbox_inches='tight')
-plt.show()
+figures_dir = '/mnt/c/Users/sgagn/Documents/phd/lyman_alpha/figures/'
+plt.savefig(f'{figures_dir}/fobs.pdf')
+# plt.show()
