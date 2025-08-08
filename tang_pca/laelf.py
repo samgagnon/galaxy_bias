@@ -143,7 +143,8 @@ dex_popt, _ = curve_fit(lambda x, a, b: a * x + b, muv_t24, muv_dex)
 NSAMPLES = 1000000
 
 # Generate a sample of Muv values
-muv_space = np.linspace(-20.75, -18.75, NSAMPLES)
+muv_space = np.linspace(-24, -16, NSAMPLES)
+# muv_space = np.linspace(-20.75, -18.75, NSAMPLES)
 p_muv = schechter(muv_space, phi_5, muv_star_5, alpha_5)
 n_gal = np.trapezoid(p_muv, x=muv_space)*1e-3 # galaxy number density in Mpc^-3
 EFFECTIVE_VOLUME = NSAMPLES/n_gal  # Mpc3, for normalization
@@ -210,12 +211,12 @@ w_sgh = (1215.67/2.47e15)*(10**log10lya)*10**(-0.4*(51.6-muv_sample))*\
 f10_sgh = np.sum(w_sgh > 10) / NSAMPLES
 f25_sgh = np.sum(w_sgh > 25) / NSAMPLES
 
-print(f10_m18, f25_m18)
-print(f10_t24, f25_t24)
-print(f10_sgh, f25_sgh)
+# print(f10_m18, f25_m18)
+# print(f10_t24, f25_t24)
+# print(f10_sgh, f25_sgh)
 
-# ewpdf = False  # Set to True to compute the EW PDF
-ewpdf = True
+ewpdf = False  # Set to True to compute the EW PDF
+# ewpdf = True
 if ewpdf == True:
 
     # EW PDF
@@ -248,10 +249,10 @@ if ewpdf == True:
     p_w = umeda_ewpdf(b1000_c, p_u[0], p_u[1])
 
     bins = np.linspace(40, 1000, 101)
-    fig, ax = plt.subplots(figsize=(6, 6), constrained_layout=True)
+    fig, ax = plt.subplots(figsize=(6, 5), constrained_layout=True)
     ax.plot(b1000_c, p_w, color=color4, linewidth=3, label='Umeda+25')
     ax.hist(w_m18[(w_m18>40)*(w_m18<1000)], bins=bins, linewidth=2.0, density=True, histtype='step', color=color3, label='Mason+18')
-    ax.hist(w_t24[(w_t24>40)*(w_t24<1000)], bins=bins, linewidth=2.0, density=True, histtype='step', color=color2, label='Tang+24')
+    # ax.hist(w_t24[(w_t24>40)*(w_t24<1000)], bins=bins, linewidth=2.0, density=True, histtype='step', color=color2, label='Tang+24')
     ax.hist(w_sgh[(w_sgh>40)*(w_sgh<1000)], bins=bins, linewidth=2.0, density=True, histtype='step', color=color1, linestyle='-', label='This Work')
     # plt.plot(b40_c, 10**log10w40_fit, color=color1, label='Gagnon-Hartman et al. (2025) fit')
     # plt.plot(b1000_c, 10**log10w1000_fit, color=color1, linestyle='-', label='Gagnon-Hartman et al. (2025) fit (extended)')
@@ -260,9 +261,9 @@ if ewpdf == True:
     ax.legend(fontsize=int(font_size/1.5), loc='upper right')
     ax.set_yscale('log')
     ax.set_xlim(40, 1000)
-    plt.show()
-    # figdir = '/mnt/c/Users/sgagn/Documents/phd/lyman_alpha/figures/'
-    # plt.savefig(f'{figdir}/ew_pdf.pdf', bbox_inches='tight')
+    # plt.show()
+    figdir = '/mnt/c/Users/sgagn/Documents/phd/lyman_alpha/figures/'
+    plt.savefig(f'{figdir}/ew_pdf.pdf', bbox_inches='tight')
     quit()
 
 heights_sgh, bins_sgh = np.histogram(log10lya, bins=bin_edges, density=False)
@@ -273,13 +274,13 @@ logphi_sgh = np.log10(heights_sgh)
 logphi_up_sgh = np.abs(np.log10(heights_sgh + height_err_sgh) - logphi_sgh)
 logphi_low_sgh = np.abs(logphi_sgh - np.log10(heights_sgh - height_err_sgh))
 
-fig, ax = plt.subplots(figsize=(6, 6.5), constrained_layout=True)
+fig, ax = plt.subplots(figsize=(6, 6), constrained_layout=True)
 ax.errorbar(lum, logphi, yerr=[logphi_low, logphi_up], 
             fmt='o', markeredgewidth=2, markersize=20, fillstyle='none', color=color4, label='Umeda+25')
 ax.errorbar(lum, logphi_m18, yerr=[logphi_low_m18, logphi_up_m18],
             fmt='*', markeredgewidth=2, markersize=20, fillstyle='none', color=color3, label='Mason+18')
-ax.errorbar(lum, logphi_t24, yerr=[logphi_low_t24, logphi_up_t24],
-            fmt='*', markeredgewidth=2, markersize=20, fillstyle='none', color=color2, label='Tang+24')
+# ax.errorbar(lum, logphi_t24, yerr=[logphi_low_t24, logphi_up_t24],
+#             fmt='*', markeredgewidth=2, markersize=20, fillstyle='none', color=color2, label='Tang+24')
 ax.errorbar(lum, logphi_sgh, yerr=[logphi_low_sgh, logphi_up_sgh],
             fmt='*', markeredgewidth=2, markersize=20, fillstyle='none', color=color1, label='This Work')
 ax.set_xlabel(r'$\log_{10} L_{\rm Ly\alpha}$ [erg s$^{-1}$]', fontsize=font_size)
