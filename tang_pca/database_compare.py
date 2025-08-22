@@ -45,6 +45,186 @@ def get_muv(sfr):
     luv = sfr * 3.1557e7 / kappa
     muv = 51.64 - np.log10(luv) / 0.4
     return muv
+    
+def mh(muv):
+    """
+    Returns log10 Mh in solar masses as a function of MUV.
+    """
+    redshift = 5.0
+    muv_inflection = -20.0 - 0.26*redshift
+    gamma = 0.4*(muv >= muv_inflection) - 0.7
+    return gamma * (muv - muv_inflection) + 11.75
+
+def vcirc(muv):
+    """
+    Returns circular velocity in km/s as a function of MUV 
+    at redshift 5.0.
+    """
+    log10_mh = mh(muv)
+    return (log10_mh - 5.62)/3
+
+def IME(x):
+    return x**(9/2)/(1 - x) + (9/7)*x**(7/2) + (9/5)*x**(5/2) + \
+        3*x**(3/2) + 9*x**(1/2) - np.log(1 + x**(1/2)) + np.log(1 - x**(1/2))
+
+def delta_nu(T):
+    """
+    Returns the Doppler width of a Lya line with temperature T
+    """
+    return ((freq_Lya/c) * np.sqrt(2*k_B*T/m_p.to('kg'))).to('Hz')
+
+def get_a(dnu):
+    """
+    Returns the damping parameter of a Lya line with Doppler width dnu
+    """
+    return (decay_factor/(4*np.pi*dnu)).to('')
+
+def get_Ab(filter_arr):
+
+    """
+    Computes Ab (for computing magnitude) for a given filter.
+
+    Parameters:
+        filter_arr: (2, M) array;
+                     M wavelengths and value of passband at each WL
+        
+    Returns:
+        Ab: float;
+
+    """
+
+    filter_WL = filter_arr[0]
+    filter_vals = filter_arr[1]
+
+    c_As = 2.9979246e18 # speed of light in [Angstrom / s]
+    Ab = c_As * np.sum(filter_vals[0:-1]*np.diff(filter_WL)/filter_WL[0:-1])
+
+    return Ab
+
+def get_Ib(filter_arr, beta):
+
+    """
+    Computes Ab (for computing magnitude) for a given filter.
+
+    Parameters:
+        filter_arr: (2, M) array;
+                     M wavelengths and value of passband at each WL
+        beta: (N) array, value of UV slope of each halo (function of SFR)
+        
+
+    Returns:
+        Ib: (N) array;
+
+    """
+
+    filter_WL = filter_arr[0]
+    filter_vals = filter_arr[1]
+
+    delta_lambda = np.diff(filter_WL)
+    weights = filter_vals[:-1] * delta_lambda
+    WL_base = filter_WL[:-1]            
+
+    WL_powers = WL_base[:, np.newaxis] ** (beta[np.newaxis, :] - 1)
+    Ib = np.sum(weights[:, np.newaxis] * WL_powers, axis=0)
+
+    # Ib = np.sum(filter_vals[0:-1]*np.diff(filter_WL)*filter_WL[0:-1]**(beta-1))
+
+    return Ib
+
+def r_at_z_cm(z):
+    return Planck18.luminosity_distance(z).to('cm').value / (1 + z)
+
+def Bouwens_beta(MUV):
+    return get_beta_bouwens14(MUV)
+
+def get_LUV(SFR):
+    """
+    Converts star formation rate to
+    absolute UV magnitude.
+    """
+    kappa = 1.15e-28
+    luv = sfr * 3.1557e7 / kappa
+    return luv
+
+def L_to_Mab_unitless(L_1500):
+    return 51.64 - 2.5 * np.log10(L_1500)
+
+def read_passband_data_WL(filename):
+    """
+    Reads numerical wavelength-QE data from a filter passband file,
+    ignoring any header lines that start with '#'.
+
+    As a function of wavelegth.
+
+    Parameters:
+        filename (str): Path to the filter file.
+
+    Returns:
+        data (np.ndarray): Nx2 array of numerical data [wavelength, QE].
+    """
+    data = []
+
+    with open(filename, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue  # skip headers and empty lines
+            parts = line.split()
+            if len(parts) >= 2:
+                data.append([float(parts[0]), float(parts[1])])
+
+    return np.array(data).T[0], np.array(data).T[1]
+
+def get_bandpass_mab(z,SFR,La_att,Ab,filter_arr):
+
+    """
+    Computes the apparent magnitude observed through a given filter.
+
+    Parameters:
+        z: (N) array; redshifts for each halo
+        SFR: (N) array; star formation rates for each halo
+                        in units of [Msun / yr]
+        La_att: (N) array; IGM-attenuated Lya luminosity for each halo
+                           must have units of [ergs / s]
+        Ab: float; defined as int(Tb * lambda * d_lambda),
+                   a constant for a given filter,
+                   must have units of [Angstroms / s]
+        Tb_az: float; value of the transmission at redshifted lya wavelength
+        filter_arr: (2, M) array;
+                     M wavelengths and value of passband at each WL
+        
+
+    Returns:
+        bp_mab: (N) array; apparent ab magnitudes through filter for each halo
+
+    """
+
+    c_As = 2.9979246e18 # speed of light in [Angstrom / s]
+
+    rL = (1+z) * r_at_z_cm(z) # luminosity distance [cm]
+    lambda_az = 1215.67 * (1+z) # wavelength of Lya at z [Angstroms]
+    lambda_1500 = 1500 # [Angstroms]
+    L_1500 = get_LUV(SFR) # in [ergs / s / Hz]
+    MUV = L_to_Mab_unitless(L_1500)
+    beta = Bouwens_beta(MUV)
+
+    # Ib: float; defined as int(Tb * lambda^{beta+1} * d_lambda),
+    #                is a function of the filter and beta(sfr),
+    #                must have units of [Angstroms]^{beta}
+    Ib = get_Ib(filter_arr, beta)
+
+    # Tb_az; value of bandpass at redshift Lya wavelength
+    Tb_az = np.interp(lambda_az, filter_arr[0],filter_arr[1])
+
+    # compute the effective flux density:
+    feff = La_att * Tb_az * lambda_az 
+    # print(c_As * L_1500 * Ib / ((1+z)**beta * lambda_1500**beta))
+    feff += c_As * L_1500 * Ib / ((1+z)**beta * lambda_1500**beta)
+    feff *= (4 * np.pi * rL**2 * Ab)**(-1) # [ergs / cm^2]
+    # check units:
+    #( ergs s^-1 A + A s^-1 ergs A^beta A^-beta ) * (cm^-2 A^-1 s) = ergs cm^-2
+    
+    return -2.5 * np.log10(feff) - 48.60
 
 # physical constants
 wave_Lya = 1215.67*u.AA
@@ -71,6 +251,42 @@ def get_a(dnu):
     """
     return (decay_factor/(4*np.pi*dnu)).to('')
 
+def get_a(m):
+            return 0.65 + 0.1 * np.tanh(3 * (m + 20.75))
+
+def get_wc(m):
+    return 31 + 12 * np.tanh(4 * (m + 20.25))
+
+# def mason2018(Muv):
+#     """
+#     Samples EW and emission probability from the
+#     fit functions obtained by Mason et al. 2018.
+#     """
+#     A = get_a(Muv)
+#     rv_A = np.random.uniform(0, 1, len(Muv))
+#     emit_bool = rv_A < A
+#     Wc = get_wc(Muv)
+#     rv_W = np.random.uniform(0, 1, len(Wc))
+#     W = -1*Wc*np.log(rv_W)
+#     W[~emit_bool] = 0  # Set W to 0 for non-emitting galaxies
+#     return W, emit_bool
+
+# muv_t24, muv_emu, muv_dex = np.array([[-19.5, -18.5, -17.5], \
+#                                       [10, 16, 27], [1.75, 1.51, 0.99]])
+# def mean_t24(muv):
+#     mean = np.zeros_like(muv)
+#     mean[muv<=-19.5] = muv_emu[0]
+#     mean[muv>-17.5] = muv_emu[2]
+#     mean[mean==0] = muv_emu[1]
+#     return mean
+
+# def sigma_t24(muv):
+#     sigma = np.zeros_like(muv)
+#     sigma[muv<=-19.5] = muv_dex[0]
+#     sigma[muv>-17.5] = muv_dex[2]
+#     sigma[sigma==0] = muv_dex[1]
+#     return sigma/np.log(10)
+
 # from Bouwens 2021 https://arxiv.org/pdf/2102.07775
 phi_5 = 0.79
 muv_star_5 = -21.1
@@ -83,87 +299,8 @@ def get_beta_bouwens14(muv):
 def schechter(muv, phi, muv_star, alpha):
     return (0.4*np.log(10))*phi*(10**(0.4*(muv_star - muv)))**(alpha+1)*\
         np.exp(-10**(0.4*(muv_star - muv)))
-
-def get_a(m):
-            return 0.65 + 0.1 * np.tanh(3 * (m + 20.75))
-
-def get_wc(m):
-    return 31 + 12 * np.tanh(4 * (m + 20.25))
-
-def mason2018(Muv):
-    """
-    Samples EW and emission probability from the
-    fit functions obtained by Mason et al. 2018.
-    """
-    A = get_a(Muv)
-    rv_A = np.random.uniform(0, 1, len(Muv))
-    emit_bool = rv_A < A
-    Wc = get_wc(Muv)
-    rv_W = np.random.uniform(0, 1, len(Wc))
-    W = -1*Wc*np.log(rv_W)
-    W[~emit_bool] = 0  # Set W to 0 for non-emitting galaxies
-    return W, emit_bool
-
-muv_t24, muv_emu, muv_dex = np.array([[-19.5, -18.5, -17.5], \
-                                      [10, 16, 27], [1.75, 1.51, 0.99]])
-def mean_t24(muv):
-    mean = np.zeros_like(muv)
-    mean[muv<=-19.5] = muv_emu[0]
-    mean[muv>-17.5] = muv_emu[2]
-    mean[mean==0] = muv_emu[1]
-    return mean
-
-def sigma_t24(muv):
-    sigma = np.zeros_like(muv)
-    sigma[muv<=-19.5] = muv_dex[0]
-    sigma[muv>-17.5] = muv_dex[2]
-    sigma[sigma==0] = muv_dex[1]
-    return sigma/np.log(10)
-
-def get_silverrush_laelf(z):
-    if z==4.9:
-        # SILVERRUSH XIV z=4.9 LAELF
-        lum_silver = np.array([42.75, 42.85, 42.95, 43.05, 43.15, 43.25, 43.35, 43.45, 43.55, 43.65])
-        logphi_silver = -1*np.array([2.91, 3.17, 3.42, 3.78, 3.88, 4.00, 4.75, 4.93, 5.23, 4.93])
-        logphi_up_silver = 1e-2*np.array([5, 5, 6, 9, 10, 12, 29, 36, 52, 36])
-        logphi_low_silver = 1e-2*np.array([5, 5, 6, 9, 10, 12, 34, 45, 77, 45])
-        return lum_silver, logphi_silver, logphi_up_silver, logphi_low_silver
-    elif z==5.7:
-        # SILVERRUSH XIV z=5.7 LAELF
-        lum_silver = np.array([42.85, 42.95, 43.05, 43.15, 43.25, 43.35, 43.45, 43.55, 43.65, 43.75, 43.85, 43.95])
-        logphi_silver = -1*np.array([3.05, 3.27, 3.56, 3.85, 4.15, 4.41, 4.72, 5.15, 5.43, 6.03, 6.33, 6.33])
-        logphi_up_silver = 1e-2*np.array([4, 2, 2, 3, 4, 5, 7, 12, 17, 36, 52, 52])
-        logphi_low_silver = 1e-2*np.array([4, 2, 2, 3, 4, 5, 7, 13, 18, 45, 77, 77])
-        return lum_silver, logphi_silver, logphi_up_silver, logphi_low_silver
-    elif z==6.6:
-        # SILVERRUSH XIV z=6.6 LAELF
-        lum_silver = np.array([42.95, 43.05, 43.15, 43.25, 43.35, 43.45, 43.55, 43.65, 43.75, 43.95, 44.05])
-        logphi_silver = -1*np.array([3.71, 4.11, 4.37, 4.65, 4.83, 5.28, 5.89, 5.9, 5.9, 6.38, 6.38])
-        logphi_up_silver = 1e-2*np.array([9, 5, 6, 7, 8, 14, 29, 29, 29, 52, 52])
-        logphi_low_silver = 1e-2*np.array([9, 5, 6, 7, 8, 15, 34, 34, 34, 77, 77])
-        return lum_silver, logphi_silver, logphi_up_silver, logphi_low_silver
-    elif z==7.0:
-        # wip
-        # SILVERRUSH XIV z=7.0 LAELF
-        lum_silver = np.array([43.25, 43.35])
-        logphi_silver = -1*np.array([4.4, 4.95])
-        logphi_up_silver = 1e-2*np.array([29, 52])
-        logphi_low_silver = 1e-2*np.array([34, 77])
-        return lum_silver, logphi_silver, logphi_up_silver, logphi_low_silver
-    elif z==7.3:
-        # wip
-        # SILVERRUSH XIV z=7.3 LAELF
-        lum_silver = np.array([43.45])
-        logphi_silver = -1*np.array([4.81])
-        logphi_up_silver = 1e-2*np.array([36])
-        logphi_low_silver = 1e-2*np.array([45])
-        return lum_silver, logphi_silver, logphi_up_silver, logphi_low_silver
     
-lum, logphi, logphi_up, logphi_low = get_silverrush_laelf(5.7)
-bin_edges = np.zeros(len(lum) + 1)
-bin_edges[0] = lum[0] - 0.5*(lum[1] - lum[0])
-bin_edges[1:-1] = 0.5*(lum[1:] + lum[:-1])
-bin_edges[-1] = lum[-1] + 0.5*(lum[-1] - lum[-2])
+print('loading from database')
 
 hdf = h5py.File('../data/id_2001.h5', 'r')
 vp_dict = dict(hdf['simulation_parameters']['varying_params'].attrs)
@@ -219,11 +356,10 @@ def get_sfr(stellar_mass, sfr_rng, z):
 z = 5.7
 mh_min = 5e8 # Msol
 
-density_lightcone = hdf['lightcones']['density'][:]
-x_HI_lightcone = hdf['lightcones']['x_HI'][:]
+density = hdf['lightcones']['density'][:]
+neutral_fraction = hdf['lightcones']['x_HI'][:]
 lightcone_redshifts = dict(hdf['lightcones'].attrs)['lightcone_redshifts']
 halo_data_redshifts = np.array(list(hdf['halo_data'].keys()), dtype=float)
-los_z = lightcone_redshifts
 
 z_halo_list = halo_data_redshifts[np.argmin(halo_data_redshifts - z)]
 
@@ -237,56 +373,58 @@ sfr_rng_indv = sfr_rng_indv[masses > mh_min]
 stellar_rng_indv = stellar_rng_indv[masses > mh_min]
 masses = masses[masses > mh_min]
 
-los_dim = density_lightcone.shape[-1]
+los_dim = density.shape[-1]
+lc_side_voxels = density.shape[0]
+
+# pad lightcones to extend sightlines
+pad = np.zeros((lc_side_voxels, lc_side_voxels, 100))
+neutral_fraction = np.concatenate([pad, neutral_fraction], axis=-1)
+density = np.concatenate([pad, density], axis=-1)
 
 dc_los = Planck18.comoving_distance(5.0).to('Mpc') + \
     np.linspace(0, 1.5*los_dim, los_dim) * u.Mpc
-# los_z = np.array([z_at_value(Planck18.comoving_distance, d).value for d in dc_los])
-n_coeval_centers = int(np.rint(2000 / 200))
-coeval_start_idcs = np.array(list(range(n_coeval_centers))) * 200
+los_z = lightcone_redshifts
+los_z = np.concatenate([[z_at_value(Planck18.comoving_distance, d) for d in \
+        Planck18.comoving_distance(5.0)-np.linspace(0, 100, 100)[::-1]*u.Mpc], los_z])
+dL = Planck18.luminosity_distance(los_z).to('cm').value
+
+n_coeval_centers = int(np.rint(los_dim / lc_side_voxels))
+coeval_start_idcs = lc_side_voxels * (np.array(list(range(los_dim))) // lc_side_voxels)
 coeval_start_z = los_z[coeval_start_idcs]
-z_adjust = coeval_start_idcs[np.argmax(coeval_start_z[coeval_start_z<z])]
+
+z_select = z>coeval_start_z
+z_adjust = coeval_start_idcs[np.argmax(coeval_start_z[z_select])] + 100
 
 _x = np.concatenate([coords.T[0], coords.T[0]], axis=0)
 _y = np.concatenate([coords.T[1], coords.T[1]], axis=0)
 _z = np.concatenate([coords.T[2], coords.T[2] + z_adjust], axis=0)
 
-masses = np.concatenate([masses, masses], axis=0)
-stellar_rng_indv = np.concatenate([stellar_rng_indv, stellar_rng_indv], axis=0)
-sfr_rng_indv = np.concatenate([sfr_rng_indv, sfr_rng_indv], axis=0)
-z = los_z[_z]
+# masses = np.concatenate([masses, masses], axis=0)
+# stellar_rng_indv = np.concatenate([stellar_rng_indv, stellar_rng_indv], axis=0)
+# sfr_rng_indv = np.concatenate([sfr_rng_indv, sfr_rng_indv], axis=0)
 
-sfr = get_sfr(get_stellar_mass(masses, stellar_rng_indv), sfr_rng_indv, z)
+# purge galaxies in neutral regions
+select = neutral_fraction[_x, _y, _z] == 0.0
+if np.sum(select) == 0:
+    quit()
+
+halo_mass = masses[select]
+halo_str_rng = stellar_rng_indv[select]
+halo_sfr_rng = sfr_rng_indv[select]
+x = _x[select]
+y = _y[select]
+z = _z[select]
+
+# TODO the above does not work! compare with ngal_from_cache.py
+
+redshifts = los_z[_z]
+
+sfr = get_sfr(get_stellar_mass(halo_mass, halo_str_rng), halo_sfr_rng, redshifts)
 muv = get_muv(sfr)
 
 NSAMPLES = len(muv)
-EFFECTIVE_VOLUME = 2*300**3
 
-# Mason et al. (2018) model
-w_m18, emit_bool_m18 = mason2018(muv)
-log10lya_m18 = np.log10(w_m18*(2.47e15/1215.67)*(1500/1215.67)**(get_beta_bouwens14(muv)+2)*\
-    10**(0.4*(51.6-muv)))
-heights_m18, bins_m18 = np.histogram(log10lya_m18, bins=bin_edges, density=False)
-bin_widths = bins_m18[1:]-bins_m18[:-1]
-height_err_m18 = np.sqrt(heights_m18) / bin_widths / EFFECTIVE_VOLUME
-heights_m18 = heights_m18 / bin_widths / EFFECTIVE_VOLUME
-logphi_m18 = np.log10(heights_m18)
-logphi_up_m18 = np.abs(np.log10(height_err_m18 + heights_m18) - logphi_m18)
-logphi_low_m18 = np.abs(logphi_m18 - np.log10(heights_m18 - height_err_m18))
-
-# Tang et al. (2024) model
-w_t24 = np.random.lognormal(mean=np.log(mean_t24(muv)),
-                            sigma=sigma_t24(muv),
-                            size=NSAMPLES)
-log10lya_t24 = np.log10(w_t24*(2.47e15/1215.67)*(1215.67/1500)**(get_beta_bouwens14(muv)+2)*\
-    10**(0.4*(51.6-muv)))
-heights_t24, bins_t24 = np.histogram(log10lya_t24, bins=bin_edges, density=False)
-bin_widths = bins_t24[1:]-bins_t24[:-1]
-height_err_t24 = np.sqrt(heights_t24) / bin_widths / EFFECTIVE_VOLUME
-heights_t24 = heights_t24 / bin_widths / EFFECTIVE_VOLUME
-logphi_t24 = np.log10(heights_t24)
-logphi_up_t24 = np.abs(np.log10(height_err_t24 + heights_t24) - logphi_t24)
-logphi_low_t24 = np.abs(logphi_t24 - np.log10(heights_t24 - height_err_t24))
+print('sampling from SGH model')
 
 # Gagnon-Hartman et al. (2025) model
 I = np.array([[1,0,0],[0,1,0],[0,0,1]])
@@ -305,47 +443,81 @@ u1, u2, u3 = np.random.normal(m1*(muv + 18.5) + b1, std1, NSAMPLES), \
             np.random.normal(m2*(muv + 18.5) + b2, std2, NSAMPLES), \
             np.random.normal(m3*(muv + 18.5) + b3, std3, NSAMPLES)
 log10lya, dv, log10ha = (A @ np.array([u1, u2, u3]))* xstd + xc
-w_sgh = (1215.67/2.47e15)*(10**log10lya)*10**(-0.4*(51.6-muv))*\
-    (1215.67/1500)**(-1*get_beta_bouwens14(muv)-2)
 
-# d_side = np.linspace(0, 300, 200)
-# plt.pcolormesh(d_side, d_side, 1-x_HI_lightcone[:,:,0].T, cmap='inferno')
-# # plt.imshow(1 - x_HI_lightcone[:, :, 0].T, origin='lower', cmap='inferno')
-# plt.scatter(1.5*_x[(z<5.001)*(log10lya>41)], \
-#             1.5*_y[(z<5.001)*(log10lya>41)], c='lime', marker='x', s=40)
-# plt.colorbar(label='Neutral Hydrogen Fraction')
-# plt.show()
-# quit()
+# prefactor for damping wing
+ra = (decay_factor/(4*np.pi*delta_nu(1e4*u.K))).to('').value
+prefactor = ra/np.pi
 
-heights_sgh, bins_sgh = np.histogram(log10lya, bins=bin_edges, density=False)
-bin_widths = bins_sgh[1:]-bins_sgh[:-1]
-height_err_sgh = np.sqrt(heights_sgh) / bin_widths / EFFECTIVE_VOLUME
-heights_sgh = heights_sgh / bin_widths / EFFECTIVE_VOLUME
-logphi_sgh = np.log10(heights_sgh)
-logphi_up_sgh = np.abs(np.log10(heights_sgh + height_err_sgh) - logphi_sgh)
-logphi_low_sgh = np.abs(logphi_sgh - np.log10(heights_sgh - height_err_sgh))
+# cut out galaxies with dv < vcirc and galaxies which cannot be seen
+vc = 10**vcirc(muv)
+lum_to_flux = np.log10(4*np.pi*dL[_z]**2)
+log10lya_flux = log10lya - lum_to_flux
+# apply a pre-selection muv cut
+select = (dv>=vc)*(muv <= -16)
+
+muv = muv[select]
+lum_to_flux = lum_to_flux[select]
+log10lya = log10lya[select]
+dv = dv[select]
+log10ha = log10ha[select]
+_x = _x[select]
+_y = _y[select]
+_z = _z[select]
 
 
+# apply IGM attenuation
+# 1. gather sightlines
+zstart = _z - 100
 
-# z, sfr, log10lya_sgh, log10lya_m18, log10lya_t24
-print(len(z), len(sfr), len(log10lya), len(log10lya_m18), len(log10lya_t24))
-# out = np.array([_x, _y, z, sfr, log10lya, log10lya_m18, log10lya_t24, masses])
-out = np.array([_x, _y, z, sfr, log10lya, u1, u2, u3, log10lya_m18, log10lya_t24, masses])
-np.save('/mnt/c/Users/sgagn/Downloads/output.npy', out)
-# inp = np.load('/mnt/c/Users/sgagn/Downloads/output.npy')
+N_SIGHTLINES = _x.shape[0]
+
+neutral_sightlines = np.array(list(map(lambda xi, yi, zi, ze: neutral_fraction[xi, yi, zi:ze], \
+                                        _x, _y, zstart, _z)))
+density_sightlines = np.array(list(map(lambda xi, yi, zi, ze: density[xi, yi, zi:ze], \
+                                        _x, _y, zstart, _z)))
+redshift_sightlines = np.array(list(map(lambda zi, ze: los_z[zi:ze], \
+                                        zstart, _z)))
+# NOTE we approximate bins as linear in redshift, not strictly true
+# beware of this in case of errors where z_rel lies within the nearest bin
+redshift_edge_sightlines = np.zeros((redshift_sightlines.shape[0], \
+                                        redshift_sightlines.shape[1]+1))
+rdiff = 0.5*(redshift_sightlines[:,1] - redshift_sightlines[:,0])
+redshift_edge_sightlines[:,0] = redshift_sightlines[:,0] - rdiff
+redshift_edge_sightlines[:,1:] = redshift_sightlines + rdiff[:, np.newaxis]
+# 2. integrate over sightlines, w/ z_rel using the velocity offset from line center
+z_rel = dv / c_kps + los_z[z]
+ze = redshift_edge_sightlines[:,:-1]
+zb = redshift_edge_sightlines[:,1:]
+miralda_escude = ((1+zb)/(1+z_rel[:,np.newaxis]))**(3/2) * \
+                        (IME((1+zb)/(1+z_rel[:,np.newaxis])) - IME((1+ze)/(1+z_rel[:,np.newaxis])))
+integrand = (1 + density_sightlines)*neutral_sightlines*miralda_escude
+integral = np.sum(integrand, axis=1)
+tau = integral * prefactor
+# transmission_factor = np.exp(-1*integral * prefactor) # maybe we should save this?
+# 3. apply transmission fraction in logspace
+plt.hist(log10lya, bins=50, color='blue', alpha=0.8)
+log10lya -= integral * prefactor * np.log10(np.e)
+
+plt.hist(log10lya, bins=50, color='orange', alpha=0.8)
+plt.show()
 quit()
 
-fig, ax = plt.subplots(figsize=(6, 6.5), constrained_layout=True)
-ax.errorbar(lum, logphi, yerr=[logphi_low, logphi_up], 
-            fmt='o', markeredgewidth=2, markersize=20, fillstyle='none', color=color4, label='Umeda+25')
-ax.errorbar(lum, logphi_m18, yerr=[logphi_low_m18, logphi_up_m18],
-            fmt='*', markeredgewidth=2, markersize=20, fillstyle='none', color=color3, label='Mason+18')
-ax.errorbar(lum, logphi_t24, yerr=[logphi_low_t24, logphi_up_t24],
-            fmt='*', markeredgewidth=2, markersize=20, fillstyle='none', color=color2, label='Tang+24')
-ax.errorbar(lum, logphi_sgh, yerr=[logphi_low_sgh, logphi_up_sgh],
-            fmt='*', markeredgewidth=2, markersize=20, fillstyle='none', color=color1, label='This Work')
-ax.set_xlabel(r'$\log_{10} L_{\rm Ly\alpha}$ [erg s$^{-1}$]', fontsize=font_size)
-ax.set_ylabel(r'$\log_{10} \phi$ [Mpc$^{-3}$]', fontsize=font_size)
-ax.set_ylim(-8, -2)
-ax.legend(fontsize=int(font_size/1.5), loc='lower left')
-plt.show()
+
+
+z_LAE_z5_SAM = z
+SFR_z5_SAM = sfr
+La_att_z5_SAM = 10**log10lya
+NB816_WL = read_passband_data_WL('../data/filters/NB816SuprimeCam.txt')
+Ab_NB816 = get_Ab(NB816_WL)
+
+print('getting bandpass')
+
+# compute magnitudes through narrowband and broadband filters
+mab_NB816_Sam = get_bandpass_mab(z_LAE_z5_SAM, SFR_z5_SAM, La_att_z5_SAM,
+                                       Ab_NB816, NB816_WL)
+NB816_mask_SAM_uniform = mab_NB816_Sam < 26.
+observed_mab_NB816_Sam_small = mab_NB816_Sam[NB816_mask_SAM_uniform]
+num = len(observed_mab_NB816_Sam_small)
+
+print(num)
+

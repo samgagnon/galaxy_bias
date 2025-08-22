@@ -19,8 +19,8 @@ rc = {"font.family" : "serif",
 plt.rcParams.update(rc) 
 plt.rcParams["font.serif"] = ["Times New Roman"] + plt.rcParams["font.serif"]
 plt.rcParams.update({'font.size': 14})
-# presentation = False
-presentation = True
+presentation = False
+# presentation = True
 if presentation:
     plt.style.use('dark_background')
     cmap = 'Blues_r'
@@ -43,6 +43,10 @@ muv_star_5 = -21.1
 alpha_5 = -1.74
 
 lum_flux_factor = 4*np.pi*(Planck18.luminosity_distance(5.0).to('cm').value)**2
+
+def get_beta_bouwens14(muv):
+    # https://arxiv.org/pdf/1306.2950
+    return -2.05 + -0.2*(muv+19.5)
 
 def schechter(muv, phi, muv_star, alpha):
     return (0.4*np.log(10))*phi*(10**(0.4*(muv_star - muv)))**(alpha+1)*\
@@ -208,13 +212,13 @@ lya_wide = lly[_p_obs_wide > 0.5]
 dv_wide = dv[_p_obs_wide > 0.5]
 lha_wide = lha[_p_obs_wide > 0.5]
 
-ew_sample = (10**lly)/(10**(0.4*(51.64 - muv_sample))) * 1215.67 / 2.47e15
+ew_sample = (10**lly)/(10**(0.4*(51.64 - muv_sample))) * (1215.67 / 2.47e15) * (1215.67/1500)**(-1*get_beta_bouwens14(muv_sample) - 2)
 fesc_sample = (10**lly)/(11.4*10**lha)
 
-ew_deep = (10**lya_deep)/(10**(0.4*(51.64 - muv_deep))) * 1215.67 / 2.47e15
+ew_deep = (10**lya_deep)/(10**(0.4*(51.64 - muv_deep))) * (1215.67 / 2.47e15) * (1215.67/1500)**(-1*get_beta_bouwens14(muv_deep) - 2)
 fesc_deep = (10**lya_deep)/(11.4*10**lha_deep)
 
-ew_wide = (10**lya_wide)/(10**(0.4*(51.64 - muv_wide))) * 1215.67 / 2.47e15
+ew_wide = (10**lya_wide)/(10**(0.4*(51.64 - muv_wide))) * (1215.67 / 2.47e15) * (1215.67/1500)**(-1*get_beta_bouwens14(muv_wide) - 2)
 fesc_wide = (10**lya_wide)/(11.4*10**lha_wide)
 
 muv_space = np.linspace(-22, -17, 50)
@@ -320,11 +324,11 @@ axs[0,2].set_xlim(-22, -17)
 axs[0,1].set_xlim(-22, -17)
 axs[2,2].set_xlim(-22, -17)
 
-axs[2,0].plot(-21.5, 13, color=color1, marker='*', markersize=20)
-axs[2,1].plot(-21.5, 555, color=color1, marker='*', markersize=20)
-axs[2,2].plot(-21.5, 0.04, color=color1, marker='*', markersize=20)
+# axs[2,0].plot(-21.5, 13, color=color1, marker='*', markersize=20)
+# axs[2,1].plot(-21.5, 555, color=color1, marker='*', markersize=20)
+# axs[2,2].plot(-21.5, 0.04, color=color1, marker='*', markersize=20)
 
 figures_dir = '/mnt/c/Users/sgagn/Documents/phd/lyman_alpha/figures/'
-# plt.savefig(f'{figures_dir}/prop_hist.pdf', bbox_inches='tight')
+plt.savefig(f'{figures_dir}/prop_hist.pdf', bbox_inches='tight')
 
 plt.show()

@@ -287,6 +287,6 @@ ax.set_xlabel(r'$\log_{10} L_{\rm Ly\alpha}$ [erg s$^{-1}$]', fontsize=font_size
 ax.set_ylabel(r'$\log_{10} \phi$ [Mpc$^{-3}$]', fontsize=font_size)
 ax.set_ylim(-8, -2)
 ax.legend(fontsize=int(font_size/1.5), loc='lower left')
-# plt.show()
+plt.show()
 figdir = '/mnt/c/Users/sgagn/Documents/phd/lyman_alpha/figures/'
-plt.savefig(f'{figdir}/laelf.pdf', bbox_inches='tight')
+# plt.savefig(f'{figdir}/laelf.pdf', bbox_inches='tight')
