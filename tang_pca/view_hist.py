@@ -157,7 +157,8 @@ I = np.array([[1,0,0],[0,1,0],[0,0,1]])
 A1 = np.array([[0,0,0],[0,0,-1],[0,1,0]])
 A2 = np.array([[0,0,1],[0,0,0],[-1,0,0]])
 A3 = np.array([[0,-1,0],[1,0,0],[0,0,0]])
-c1, c2, c3, c4 = 1, 1, 1/3, -1
+# c1, c2, c3, c4 = 1, 1, 1/3, -1
+c1, c2, c3, c4 = np.load('../data/pca/coefficients.npy')
 T = c1 * I + c2 * A1 + c3 * A2 + c4 * A3
 
 NSAMPLES = 100000
@@ -195,6 +196,8 @@ lly, dv, lha = X0[0], X0[1], X0[2]
 lly = lly * xstd[0] + xc[0]
 dv = dv * xstd[1] + xc[1]
 lha = lha * xstd[2] + xc[2]
+
+dv = 10**dv  # dv in km/s
 
 _p_obs_wide = p_obs(10**lly, dv, 10**lha, muv_sample, theta, mode='wide')
 _p_obs_deep = p_obs(10**lly, dv, 10**lha, muv_sample, theta, mode='deep')

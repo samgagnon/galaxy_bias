@@ -337,7 +337,8 @@ def get_stellar_mass(halo_masses, stellar_rng):
     
     high_mass_turnover = ((mp2/mp1)**a_star + (mp2/mp1)**a_star2)/((halo_masses/mp2)**(-1*a_star)+(halo_masses/mp2)**(-1*a_star2))
     stoc_adjustment_term = 0.5*sigma_star**2
-    low_mass_turnover = np.exp(-1*M_turn/halo_masses + stellar_rng*sigma_star - stoc_adjustment_term)
+    stoc = 10 ** (stellar_rng*sigma_star - stoc_adjustment_term)
+    low_mass_turnover = np.exp(-1*M_turn/halo_masses) * stoc
     stellar_mass = f_star10 * baryon_frac * halo_masses * (high_mass_turnover * low_mass_turnover)
     return stellar_mass
 
@@ -350,7 +351,7 @@ def get_sfr(stellar_mass, sfr_rng, z):
     sigma_sfr = sigma_sfr_idx * np.log10(stellar_mass/1e10) + sigma_sfr_lim
     sigma_sfr[sigma_sfr < sigma_sfr_lim] = sigma_sfr_lim
     stoc_adjustment_term = sigma_sfr * sigma_sfr / 2. # adjustment to the mean for lognormal scatter
-    sfr_sample = sfr_mean * np.exp(sfr_rng*sigma_sfr - stoc_adjustment_term)
+    sfr_sample = sfr_mean * 10 ** (sfr_rng*sigma_sfr - stoc_adjustment_term)
     return sfr_sample
 
 z = 5.7
@@ -395,25 +396,22 @@ coeval_start_z = los_z[coeval_start_idcs]
 z_select = z>coeval_start_z
 z_adjust = coeval_start_idcs[np.argmax(coeval_start_z[z_select])] + 100
 
-_x = np.concatenate([coords.T[0], coords.T[0]], axis=0)
-_y = np.concatenate([coords.T[1], coords.T[1]], axis=0)
-_z = np.concatenate([coords.T[2], coords.T[2] + z_adjust], axis=0)
-
-# masses = np.concatenate([masses, masses], axis=0)
-# stellar_rng_indv = np.concatenate([stellar_rng_indv, stellar_rng_indv], axis=0)
-# sfr_rng_indv = np.concatenate([sfr_rng_indv, sfr_rng_indv], axis=0)
+_x = coords.T[0]
+_y = coords.T[1]
+_z = coords.T[2] + z_adjust
 
 # purge galaxies in neutral regions
 select = neutral_fraction[_x, _y, _z] == 0.0
+
 if np.sum(select) == 0:
     quit()
 
 halo_mass = masses[select]
 halo_str_rng = stellar_rng_indv[select]
 halo_sfr_rng = sfr_rng_indv[select]
-x = _x[select]
-y = _y[select]
-z = _z[select]
+_x = _x[select]
+_y = _y[select]
+_z = _z[select]
 
 # TODO the above does not work! compare with ngal_from_cache.py
 
@@ -485,7 +483,7 @@ rdiff = 0.5*(redshift_sightlines[:,1] - redshift_sightlines[:,0])
 redshift_edge_sightlines[:,0] = redshift_sightlines[:,0] - rdiff
 redshift_edge_sightlines[:,1:] = redshift_sightlines + rdiff[:, np.newaxis]
 # 2. integrate over sightlines, w/ z_rel using the velocity offset from line center
-z_rel = dv / c_kps + los_z[z]
+z_rel = dv / c_kps + los_z[_z]
 ze = redshift_edge_sightlines[:,:-1]
 zb = redshift_edge_sightlines[:,1:]
 miralda_escude = ((1+zb)/(1+z_rel[:,np.newaxis]))**(3/2) * \

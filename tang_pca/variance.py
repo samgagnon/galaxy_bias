@@ -54,7 +54,8 @@ I = np.array([[1,0,0],[0,1,0],[0,0,1]])
 A1 = np.array([[0,0,0],[0,0,-1],[0,1,0]])
 A2 = np.array([[0,0,1],[0,0,0],[-1,0,0]])
 A3 = np.array([[0,-1,0],[1,0,0],[0,0,0]])
-c1, c2, c3, c4 = 1, 1, 1/3, -1
+# c1, c2, c3, c4 = 1, 1, 1/3, -1
+c1, c2, c3, c4 = np.load('../data/pca/coefficients.npy')
 A = c1 * I + c2 * A1 + c3 * A2 + c4 * A3
 xc = np.load('../data/pca/xc.npy')
 xstd = np.load('../data/pca/xstd.npy')
@@ -80,6 +81,8 @@ y2 = np.random.normal(mu2, std2, NSAMPLES)
 y3 = np.random.normal(mu3, std3, NSAMPLES)
 Y = np.vstack((y1, y2, y3))
 X = (A @ Y) * xstd + xc
+
+X[1] = 10**X[1]  # dv in km/s
 
 fig, axs = plt.subplots(3, 3, figsize=(15, 10), constrained_layout=True)
 

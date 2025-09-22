@@ -143,11 +143,13 @@ dex_popt, _ = curve_fit(lambda x, a, b: a * x + b, muv_t24, muv_dex)
 NSAMPLES = 1000000
 
 # Generate a sample of Muv values
-muv_space = np.linspace(-24, -16, NSAMPLES)
+# my EW PDF is highly, highly sensitive to the limiting MUV
+muv_space = np.linspace(-24, -18.75, NSAMPLES)
 # muv_space = np.linspace(-20.75, -18.75, NSAMPLES)
 p_muv = schechter(muv_space, phi_5, muv_star_5, alpha_5)
 n_gal = np.trapezoid(p_muv, x=muv_space)*1e-3 # galaxy number density in Mpc^-3
 EFFECTIVE_VOLUME = NSAMPLES/n_gal  # Mpc3, for normalization
+print(EFFECTIVE_VOLUME**(1/3))
 
 p_muv /= np.sum(p_muv)
 muv_sample = np.random.choice(muv_space, size=NSAMPLES, p=p_muv)
@@ -197,7 +199,8 @@ I = np.array([[1,0,0],[0,1,0],[0,0,1]])
 A1 = np.array([[0,0,0],[0,0,-1],[0,1,0]])
 A2 = np.array([[0,0,1],[0,0,0],[-1,0,0]])
 A3 = np.array([[0,-1,0],[1,0,0],[0,0,0]])
-c1, c2, c3, c4 = 1, 1, 1/3, -1
+# c1, c2, c3, c4 = 1, 1, 1/3, -1
+c1, c2, c3, c4 = np.load('../data/pca/coefficients.npy')
 A = c1 * I + c2 * A1 + c3 * A2 + c4 * A3
 xc = np.load('../data/pca/xc.npy')
 xstd = np.load('../data/pca/xstd.npy')
@@ -215,8 +218,8 @@ f25_sgh = np.sum(w_sgh > 25) / NSAMPLES
 # print(f10_t24, f25_t24)
 # print(f10_sgh, f25_sgh)
 
-ewpdf = False  # Set to True to compute the EW PDF
-# ewpdf = True
+# ewpdf = False  # Set to True to compute the EW PDF
+ewpdf = True
 if ewpdf == True:
 
     # EW PDF
@@ -241,7 +244,7 @@ if ewpdf == True:
         leg1 = np.exp(-1*w[w<=200] / 32.9)
         leg2 = np.exp(-1*w[w>200] / 76.3)
         p_w[w<=200] = a*leg1
-        p_w[w>200] = b*leg2
+        p_w[w>200] = (a*leg1[-1]/leg2[0])*leg2
         return p_w
 
     p_u, _ = curve_fit(umeda_ewpdf, b1000_c[h1000>0], h1000[h1000>0])
@@ -261,10 +264,12 @@ if ewpdf == True:
     ax.legend(fontsize=int(font_size/1.5), loc='upper right')
     ax.set_yscale('log')
     ax.set_xlim(40, 1000)
-    # plt.show()
+    plt.show()
     figdir = '/mnt/c/Users/sgagn/Documents/phd/lyman_alpha/figures/'
-    plt.savefig(f'{figdir}/ew_pdf.pdf', bbox_inches='tight')
+    # plt.savefig(f'{figdir}/ew_pdf.pdf', bbox_inches='tight')
     quit()
+
+fig, ax = plt.subplots(figsize=(6, 6), constrained_layout=True)
 
 heights_sgh, bins_sgh = np.histogram(log10lya, bins=bin_edges, density=False)
 bin_widths = bins_sgh[1:]-bins_sgh[:-1]
@@ -274,15 +279,28 @@ logphi_sgh = np.log10(heights_sgh)
 logphi_up_sgh = np.abs(np.log10(heights_sgh + height_err_sgh) - logphi_sgh)
 logphi_low_sgh = np.abs(logphi_sgh - np.log10(heights_sgh - height_err_sgh))
 
-fig, ax = plt.subplots(figsize=(6, 6), constrained_layout=True)
+ax.errorbar(lum, logphi_sgh, yerr=[logphi_low_sgh, logphi_up_sgh],
+            fmt='*', markeredgewidth=2, markersize=20, fillstyle='none', color=color1, label='This Work')
+
+log10lya = np.load('../data/log10lya_z5.7_16092025.npy')
+
+heights_sgh, bins_sgh = np.histogram(log10lya, bins=bin_edges, density=False)
+bin_widths = bins_sgh[1:]-bins_sgh[:-1]
+height_err_sgh = np.sqrt(heights_sgh) / bin_widths / 300**3
+heights_sgh = heights_sgh / bin_widths / 300**3
+logphi_sgh = np.log10(heights_sgh)
+logphi_up_sgh = np.abs(np.log10(heights_sgh + height_err_sgh) - logphi_sgh)
+logphi_low_sgh = np.abs(logphi_sgh - np.log10(heights_sgh - height_err_sgh))
+
+# ax.errorbar(lum, logphi_sgh, yerr=[logphi_low_sgh, logphi_up_sgh],
+#             fmt='^', markeredgewidth=2, markersize=20, fillstyle='none', color=color1, label='21cmFASTv4')
+
 ax.errorbar(lum, logphi, yerr=[logphi_low, logphi_up], 
             fmt='o', markeredgewidth=2, markersize=20, fillstyle='none', color=color4, label='Umeda+25')
 ax.errorbar(lum, logphi_m18, yerr=[logphi_low_m18, logphi_up_m18],
             fmt='*', markeredgewidth=2, markersize=20, fillstyle='none', color=color3, label='Mason+18')
 # ax.errorbar(lum, logphi_t24, yerr=[logphi_low_t24, logphi_up_t24],
 #             fmt='*', markeredgewidth=2, markersize=20, fillstyle='none', color=color2, label='Tang+24')
-ax.errorbar(lum, logphi_sgh, yerr=[logphi_low_sgh, logphi_up_sgh],
-            fmt='*', markeredgewidth=2, markersize=20, fillstyle='none', color=color1, label='This Work')
 ax.set_xlabel(r'$\log_{10} L_{\rm Ly\alpha}$ [erg s$^{-1}$]', fontsize=font_size)
 ax.set_ylabel(r'$\log_{10} \phi$ [Mpc$^{-3}$]', fontsize=font_size)
 ax.set_ylim(-8, -2)

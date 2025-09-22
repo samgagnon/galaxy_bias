@@ -129,7 +129,7 @@ for i, (muv, muve, ew, ewe, lly, llye, dv, dve, lha, lhae, fe, fee) in enumerate
     ew_wide[1000*i:1000*(i+1)] = np.random.normal(ew, ewe, 1000)
     ew_wide[1000*i:1000*(i+1)][ew_wide[1000*i:1000*(i+1)]<=0] = np.mean(ew_wide[1000*i:1000*(i+1)])  # replace with mean
     lum_lya_wide[1000*i:1000*(i+1)][lum_lya_wide[1000*i:1000*(i+1)]<10] = np.mean(lum_lya_wide[1000*i:1000*(i+1)])  # replace with mean
-    dv_wide[1000*i:1000*(i+1)][dv_wide[1000*i:1000*(i+1)]<10] = np.mean(dv_wide[1000*i:1000*(i+1)])  # replace with mean
+    dv_wide[1000*i:1000*(i+1)][dv_wide[1000*i:1000*(i+1)]<0.5] = np.mean(dv_wide[1000*i:1000*(i+1)])  # replace with mean
     lum_ha_wide[1000*i:1000*(i+1)][lum_ha_wide[1000*i:1000*(i+1)]<10] = np.mean(lum_ha_wide[1000*i:1000*(i+1)])  # replace with mean
 
     
@@ -145,7 +145,7 @@ for i, (muv, muve, ew, ewe, lly, llye, dv, dve, lha, lhae, fe, fee) in enumerate
     ew_deep[1000*i:1000*(i+1)] = np.random.normal(ew, ewe, 1000)
     ew_deep[1000*i:1000*(i+1)][ew_deep[1000*i:1000*(i+1)]<=0] = np.mean(ew_deep[1000*i:1000*(i+1)])  # replace with mean
     lum_lya_deep[1000*i:1000*(i+1)][lum_lya_deep[1000*i:1000*(i+1)]<10] = np.mean(lum_lya_deep[1000*i:1000*(i+1)])  # replace with mean
-    dv_deep[1000*i:1000*(i+1)][dv_deep[1000*i:1000*(i+1)]<10] = np.mean(dv_deep[1000*i:1000*(i+1)])  # replace with mean
+    dv_deep[1000*i:1000*(i+1)][dv_deep[1000*i:1000*(i+1)]<0.5] = np.mean(dv_deep[1000*i:1000*(i+1)])  # replace with mean
     lum_ha_deep[1000*i:1000*(i+1)][lum_ha_deep[1000*i:1000*(i+1)]<10] = np.mean(lum_ha_deep[1000*i:1000*(i+1)])  # replace with mean
 
 def normal_cdf(x, mu=0):
@@ -241,6 +241,7 @@ A1 = np.array([[0,0,0],[0,0,-1],[0,1,0]])
 A2 = np.array([[0,0,1],[0,0,0],[-1,0,0]])
 A3 = np.array([[0,-1,0],[1,0,0],[0,0,0]])
 c1, c2, c3, c4 = 1, 1, 1/3, -1
+# c1, c2, c3, c4 = np.load('../data/pca/coefficients.npy')
 T = c1 * I + c2 * A1 + c3 * A2 + c4 * A3
 
 YALL = np.linalg.inv(T) @ XALL0
@@ -279,6 +280,7 @@ def fit():
         GALDENS = trapezoid(schechter(muv_range, phi_5, muv_star_5, alpha_5), muv_range)
 
         VOL_WIDE = 146.082  # 10^3 Mpc^3
+        # VOL_WIDE /= 6**3 # convert to comoving volume
         n_gal = GALDENS * VOL_WIDE
         n_gal_rel_err = np.sqrt(n_gal)/n_gal
         n_muv_wide = np.sum(np.abs(muv_wide - muv) < 0.5)/1000
@@ -298,6 +300,7 @@ def fit():
         ew_std[i, 0] = np.std(ew_wide[np.abs(muv_wide - muv) < 0.5])
         
         VOL_DEEP = 7.877 # 10^3 Mpc^3
+        # VOL_DEEP *= 4 # increase to 3x3 arcmin2 footprint from MOSAIC
         n_gal = GALDENS * VOL_DEEP
         n_gal_rel_err = np.sqrt(n_gal)/n_gal
         n_muv_deep = np.sum(np.abs(muv_deep - muv) < 0.5)/1000
@@ -442,14 +445,81 @@ f_err = np.load('../data/pca/f_err.npy')
 m1, m2, m3, b1, b2, b3, std1, std2, std3, w1, w2, f1, f2, fh = np.load('../data/pca/fit_params.npy')
 # m1, m2, m3, b1, b2, b3, std1, std2, std3, w1, w2, f1, f2, fh = fit_params
 # m1, m2, m3, b1, b2, b3 = -1.45, -0.66, -3.76, -4.22, -3.09, -2.08  # Example values for testing
-print(xc, xstd)
-print(m1, m2, m3, b1, b2, b3, std1, std2, std3, w1, w2, f1, f2, fh)
-print(T)
-# print(np.linalg.inv(T))
-# print(w1, w2, f1, f2, fh)
+# print(xc, xstd)
+# print(m1, m2, m3, b1, b2, b3, std1, std2, std3, w1, w2, f1, f2, fh)
+# print(T)
 
-quit()
+# muv_range = np.linspace(-25, -16, 1000)
+# GALDENS = trapezoid(schechter(muv_range, phi_5, muv_star_5, alpha_5), muv_range)
+# pmuv = schechter(muv_range, phi_5, muv_star_5, alpha_5) / np.sum(schechter(muv_range, phi_5, muv_star_5, alpha_5))
 
+# VOL_WIDE = 146.082  # 10^3 Mpc^3
+# n_gal = GALDENS * VOL_WIDE
+# n_gal_rel_err = np.sqrt(n_gal)/n_gal
+
+# muv_samples = np.random.choice(muv_range, size=int(n_gal), p=pmuv)
+# muv_21cmfast = np.load('../data/muv_z5.7_16092025.npy')
+
+# for muv_samples in [muv_samples, muv_21cmfast]:
+
+#     # Fit the PCA coefficients to the observed fraction of LyA+Ha emitters
+#     mu1 = line(muv_samples, m1, b1)
+#     mu2 = line(muv_samples, m2, b2)
+#     mu3 = line(muv_samples, m3, b3)
+#     theta = [w1, w2, f1, f2, fh]
+
+#     y1 = np.random.normal(mu1, std1, int(len(muv_samples)))
+#     y2 = np.random.normal(mu2, std2, int(len(muv_samples)))
+#     y3 = np.random.normal(mu3, std3, int(len(muv_samples)))
+
+#     # NOTE something is going wrong with the values here
+#     Y = np.stack([y1, y2, y3], axis=-2)
+#     X0 = T @ Y  # Transform to PCA basis
+
+#     lly, _, lha = X0
+#     lly = lly * xstd[0] + xc[0]
+#     lha = lha * xstd[2] + xc[2]
+
+#     _p_obs_wide = p_obs(10**lly, dv, 10**lha, muv_samples, theta, mode='wide')
+#     n_muv_wide = np.sum(_p_obs_wide)
+#     n_muv_wide_rel_err = np.sqrt(n_muv_wide)/n_muv_wide
+
+#     print(n_gal, n_gal_rel_err)
+#     print(n_muv_wide, n_muv_wide_rel_err)
+
+# VOL_DEEP = 7.877 # 10^3 Mpc^3
+# n_gal = GALDENS * VOL_DEEP
+# n_gal_rel_err = np.sqrt(n_gal)/n_gal
+
+# muv_samples = np.random.choice(muv_range, size=int(n_gal), p=pmuv)
+
+# for muv_samples in [muv_samples, muv_21cmfast]:
+
+#     # Fit the PCA coefficients to the observed fraction of LyA+Ha emitters
+#     mu1 = line(muv_samples, m1, b1)
+#     mu2 = line(muv_samples, m2, b2)
+#     mu3 = line(muv_samples, m3, b3)
+#     theta = [w1, w2, f1, f2, fh]
+
+#     y1 = np.random.normal(mu1, std1, int(len(muv_samples)))
+#     y2 = np.random.normal(mu2, std2, int(len(muv_samples)))
+#     y3 = np.random.normal(mu3, std3, int(len(muv_samples)))
+
+#     # NOTE something is going wrong with the values here
+#     Y = np.stack([y1, y2, y3], axis=-2)
+#     X0 = T @ Y  # Transform to PCA basis
+
+#     lly, _, lha = X0
+#     lly = lly * xstd[0] + xc[0]
+#     lha = lha * xstd[2] + xc[2]
+
+#     _p_obs_deep = p_obs(10**lly, dv, 10**lha, muv_samples, theta, mode='deep')
+#     n_muv_deep = np.sum(_p_obs_deep)
+#     n_muv_deep_rel_err = np.sqrt(n_muv_deep)/n_muv_deep
+
+#     print(n_gal, n_gal_rel_err)
+#     print(n_muv_deep, n_muv_deep_rel_err)
+# quit()
 
 theta = [w1, w2, f1, f2, fh]
 
@@ -488,5 +558,5 @@ axs.set_yscale('log')
 axs.legend(fontsize=int(font_size/1.5), loc='lower left')
 
 figures_dir = '/mnt/c/Users/sgagn/Documents/phd/lyman_alpha/figures/'
-plt.savefig(f'{figures_dir}/fobs.pdf')
-# plt.show()
+# plt.savefig(f'{figures_dir}/fobs.pdf')
+plt.show()
