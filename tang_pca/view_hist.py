@@ -166,12 +166,8 @@ xc = np.load('../data/pca/xc.npy')
 xstd = np.load('../data/pca/xstd.npy')
 f = np.load('../data/pca/f.npy')
 f_err = np.load('../data/pca/f_err.npy')
-m1, m2, m3, b1, b2, b3, std1, std2, std3, w1, w2, f1, f2, fh = np.load('../data/pca/fit_params.npy')
-# print(m1, m2, m3, b1, b2, b3, std1, std2, std3)
-# print(w1, w2, f1, f2, fh)
-# print('xstd', xstd)
-# print('xc', xc)
-# quit()
+# m1, m2, m3, b1, b2, b3, std1, std2, std3, w1, w2, f1, f2, fh = np.load('../data/pca/fit_params.npy')
+m1, m2, m3, b1, b2, b3, std1, std2, std3, w1, w2, f1, f2, fh = np.load('../data/pca/fobs_fit_params.npy')
 theta = [w1, w2, f1, f2, fh]
 
 muv_range = np.linspace(-22, -17, NSAMPLES)
@@ -197,7 +193,7 @@ lly = lly * xstd[0] + xc[0]
 dv = dv * xstd[1] + xc[1]
 lha = lha * xstd[2] + xc[2]
 
-dv = 10**dv  # dv in km/s
+# dv = 10**dv  # dv in km/s
 
 _p_obs_wide = p_obs(10**lly, dv, 10**lha, muv_sample, theta, mode='wide')
 _p_obs_deep = p_obs(10**lly, dv, 10**lha, muv_sample, theta, mode='deep')
@@ -331,7 +327,7 @@ axs[2,2].set_xlim(-22, -17)
 # axs[2,1].plot(-21.5, 555, color=color1, marker='*', markersize=20)
 # axs[2,2].plot(-21.5, 0.04, color=color1, marker='*', markersize=20)
 
-figures_dir = '/mnt/c/Users/sgagn/Documents/phd/lyman_alpha/figures/'
-plt.savefig(f'{figures_dir}/prop_hist.pdf', bbox_inches='tight')
+figures_dir = '/mnt/c/Users/sgagn/OneDrive/Documents/phd/lyman_alpha/figures/'
+# plt.savefig(f'{figures_dir}/prop_hist.pdf', bbox_inches='tight')
 
 plt.show()

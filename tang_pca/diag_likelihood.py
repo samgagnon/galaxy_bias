@@ -44,6 +44,9 @@ phi_5 = 0.79
 muv_star_5 = -21.1
 alpha_5 = -1.74
 
+def tanh(x, k, c):
+    return k*np.tanh(0.5*(x + 20.5)) + c
+
 def get_beta_bouwens14(muv):
     # https://arxiv.org/pdf/1306.2950
     return -2.05 + -0.2*(muv+19.5)
@@ -226,10 +229,12 @@ os.makedirs('../data/pca', exist_ok=True)
 # transform the wide sample to the PCA basis
 XALL = np.concatenate((XWIDE, XDEEP), axis=1)
 
-XC = XALL.mean(axis=1, keepdims=True)
-np.save('../data/pca/xc.npy', XC)
-XSTD = XALL.std(axis=1, keepdims=True)
-np.save('../data/pca/xstd.npy', XSTD)
+# XC = XALL.mean(axis=1, keepdims=True)
+# np.save('../data/pca/xc.npy', XC)
+XC = np.load('../data/pca/xc.npy')
+# XSTD = XALL.std(axis=1, keepdims=True)
+XSTD = np.load('../data/pca/xstd.npy')
+# np.save('../data/pca/xstd.npy', XSTD)
 XALL0 = (XALL - XC) / XSTD
 
 I = np.array([[1,0,0],[0,1,0],[0,0,1]])
@@ -239,6 +244,7 @@ A3 = np.array([[0,-1,0],[1,0,0],[0,0,0]])
 c1, c2, c3, c4 = 1, 1, 1/3, -1
 # c1, c2, c3, c4 = np.load('../data/pca/coefficients.npy')
 T = c1 * I + c2 * A1 + c3 * A2 + c4 * A3
+# T = I
 
 YALL = np.linalg.inv(T) @ XALL0
 
@@ -253,7 +259,7 @@ def fit():
     Fit the PCA coefficients to the observed fraction of LyA+Ha emitters.
     """
 
-    NBINS = 20
+    NBINS = 2
     xc = np.load('../data/pca/xc.npy')
     xstd = np.load('../data/pca/xstd.npy')
 
@@ -317,37 +323,18 @@ def fit():
         ew_mean[i, 1] = np.mean(ew_deep[np.abs(muv_deep - muv) < 0.5])
         ew_std[i, 1] = np.std(ew_deep[np.abs(muv_deep - muv) < 0.5])
 
-    np.save('../data/pca/f.npy', f)
-    np.save('../data/pca/f_err.npy', f_err)
-    np.save('../data/pca/lly_mean.npy', lly_mean)
-    np.save('../data/pca/dv_mean.npy', dv_mean)
-    np.save('../data/pca/lha_mean.npy', lha_mean)
-    np.save('../data/pca/lly_std.npy', lly_std)
-    np.save('../data/pca/dv_std.npy', dv_std)
-    np.save('../data/pca/lha_std.npy', lha_std)
-
-    # NSAMPLES = 100000
-    # muv_space = np.linspace(-24, -17.68, NSAMPLES)
-    # p_muv = schechter(muv_space, phi_5, muv_star_5, alpha_5)
-    # n_gal = np.trapezoid(p_muv, x=muv_space)*1e-3 # galaxy number density in Mpc^-3
-    # EFFECTIVE_VOLUME = NSAMPLES/n_gal  # Mpc3, for normalization
-    # p_muv /= np.sum(p_muv)
-
-    # muv_sample = np.random.choice(muv_space, size=NSAMPLES, p=p_muv)
-
     def objective(params):
         m1, m2, m3, b1, b2, b3, std1, std2, std3, w1, w2, f1, f2, fh = params
         theta = [w1, w2, f1, f2, fh]
-
-        # m = np.stack([m1, m2, m3])
-        # mphys = T @ m
-        # if np.any(mphys < 0):
-        #     return 1e10
 
         # Fit the PCA coefficients to the observed fraction of LyA+Ha emitters
         mu1 = line(muv_centers, m1, b1)
         mu2 = line(muv_centers, m2, b2)
         mu3 = line(muv_centers, m3, b3)
+
+        # mu1 = tanh(muv_centers, m1, b1)
+        # mu2 = tanh(muv_centers, m2, b2)
+        # mu3 = tanh(muv_centers, m3, b3)
 
         y1 = np.random.normal(mu1, std1, (1000, NBINS))
         y2 = np.random.normal(mu2, std2, (1000, NBINS))
@@ -368,8 +355,8 @@ def fit():
         # use_fobs = False  # For testing without observed fraction
 
         # calculate the distance from the expected observed fraction
-        _p_obs_wide = p_obs(10**lly, dv, 10**lha, muv_centers.reshape((1, 20)), theta, mode='wide')
-        _p_obs_deep = p_obs(10**lly, dv, 10**lha, muv_centers.reshape((1, 20)), theta, mode='deep')
+        _p_obs_wide = p_obs(10**lly, dv, 10**lha, muv_centers.reshape((1, NBINS)), theta, mode='wide')
+        _p_obs_deep = p_obs(10**lly, dv, 10**lha, muv_centers.reshape((1, NBINS)), theta, mode='deep')
 
         if use_fobs:
 
@@ -380,6 +367,7 @@ def fit():
             p_deep = -0.5*((f_deep - f[:,1])/f_err[:,1])**2
 
             logp += np.sum(p_wide) + np.sum(p_deep)
+            # logp += np.sum(p_deep)
 
 
         use_fesc = True  # Whether to use the escape fraction in the likelihood
@@ -389,8 +377,8 @@ def fit():
             _p_obs_wide = _p_obs_wide / np.sum(_p_obs_wide, axis=0, keepdims=True)
             _p_obs_wide[np.isnan(_p_obs_wide)] = 0
 
-            beta = get_beta_bouwens14(muv_centers.reshape((1, 20)))
-            ew = (1215.67/2.47e15)*(10**lly)*10**(-0.4 * (51.6 - muv_centers.reshape((1, 20)))) \
+            beta = get_beta_bouwens14(muv_centers.reshape((1, NBINS)))
+            ew = (1215.67/2.47e15)*(10**lly)*10**(-0.4 * (51.6 - muv_centers.reshape((1, NBINS)))) \
                  * (1215.6/1500) ** (-1*beta - 2)
 
             lly_wide_mean = np.sum(lly*_p_obs_wide, axis=0)
@@ -416,60 +404,24 @@ def fit():
                 0.5 * ((fesc_deep_mean - fesc_mean[:,1]) / fesc_std[:,1])**2
 
             logp += np.sum(p_wide) + np.sum(p_deep)
-
-        # use_nlae = True  # Whether to use the overall number density of nlae in the likelihood
-        # use_nlae = False  # For testing without overall number density of nlae
-        # if use_nlae:
-
-        #     # Fit the PCA coefficients to the observed fraction of LyA+Ha emitters
-        #     mu1 = line(muv_sample, m1, b1)
-        #     mu2 = line(muv_sample, m2, b2)
-        #     mu3 = line(muv_sample, m3, b3)
-
-        #     y1 = np.random.normal(mu1, std1, NSAMPLES)
-        #     y2 = np.random.normal(mu2, std2, NSAMPLES)
-        #     y3 = np.random.normal(mu3, std3, NSAMPLES)
-
-        #     # NOTE something is going wrong with the values here
-        #     Y = np.stack([y1, y2, y3], axis=-2)
-        #     X0 = T @ Y  # Transform to PCA basis
-
-        #     lly, dv, lha = X0[0], X0[1], X0[2]
-        #     lly = lly * xstd[0] + xc[0]
-        #     dv = dv * xstd[1] + xc[1]
-        #     lha = lha * xstd[2] + xc[2]
-
-        #     # calculate the distance from the expected observed fraction
-        #     _p_obs_wide = p_obs(10**lly, dv, 10**lha, muv_sample, theta, mode='wide')
-        #     _p_obs_deep = p_obs(10**lly, dv, 10**lha, muv_sample, theta, mode='deep')
-
-        #     wide_numdens = 156e3 * np.sum(_p_obs_wide) / EFFECTIVE_VOLUME  # Mpc^-3
-        #     deep_numdens = 28e3 * np.sum(_p_obs_deep) / EFFECTIVE_VOLUME
-
-        #     wide_numdens_ref = 24  # Mpc^-3
-        #     deep_numdens_ref = 36  # Mpc^-3 from Tang+24
-
-        #     wide_numdens_err = np.sqrt(wide_numdens_ref)
-        #     deep_numdens_err = np.sqrt(deep_numdens_ref)
-
-        #     p_wide = -0.5 * ((wide_numdens - wide_numdens_ref) / wide_numdens_err)**2
-        #     p_deep = -0.5 * ((deep_numdens - deep_numdens_ref) / deep_numdens_err)**2
-        #     logp += np.sum(p_wide) + np.sum(p_deep)
+            # logp += np.sum(p_deep)
 
         if -1*logp < 50:
-            np.save('../data/pca/fit_params.npy', params)
+            np.save('../data/pca/diag_fit_params.npy', params)
 
         return -1*logp
 
     bounds = [(-1, 1)]*3 + [(-3, 3)]*3 + [(0.01, 1)]*3 + [(0.5, 1.5)]*5
     # values used in paper
-    x0 = np.array([0.006, -0.54, -0.35, -0.34, -0.95, -0.24, 0.56, 0.50, 0.19, 1.45, 0.96, 0.9, 1.35, 0.6])
+    x0 = np.array([-0.43654055, -0.26815013, -0.02643387, -0.46741342, -0.30237795, -0.17587551,\
+            0.73306231, 0.1231328, 0.51213658, 0.74367452, 0.68306615, 1.27908166,\
+            1.37809827, 0.86906566])
     # x0 = np.load('../data/pca/fit_params.npy')
     # result = differential_evolution(objective, x0=x0, bounds=bounds, maxiter=20, popsize=1, disp=True)
-    result = differential_evolution(objective, x0=x0, bounds=bounds, maxiter=500, mutation=(0.1, 1.9), \
+    result = differential_evolution(objective, x0=x0, bounds=bounds, maxiter=100, mutation=(0.1, 1.9), \
                                      popsize=20, disp=True, recombination=0.5)
     all_params = result.x
-    np.save('../data/pca/fit_params.npy', all_params)
+    np.save('../data/pca/diag_fit_params.npy', all_params)
     print("Fitted parameters:", result.x)
     return result.x
 
@@ -481,7 +433,7 @@ xc = np.load('../data/pca/xc.npy')
 xstd = np.load('../data/pca/xstd.npy')
 f = np.load('../data/pca/f.npy')
 f_err = np.load('../data/pca/f_err.npy')
-m1, m2, m3, b1, b2, b3, std1, std2, std3, w1, w2, f1, f2, fh = np.load('../data/pca/fit_params.npy')
+m1, m2, m3, b1, b2, b3, std1, std2, std3, w1, w2, f1, f2, fh = np.load('../data/pca/diag_fit_params.npy')
 theta = [w1, w2, f1, f2, fh]
 
 # Fit the PCA coefficients to the observed fraction of LyA+Ha emitters
@@ -518,6 +470,6 @@ axs.set_xlabel(r'${\rm M}_{\rm UV}$', fontsize=font_size)
 axs.set_yscale('log')
 axs.legend(fontsize=int(font_size/1.5), loc='lower left')
 
-figures_dir = '/mnt/c/Users/sgagn/OneDrive/Documents/phd/lyman_alpha/figures/'
-plt.savefig(f'{figures_dir}/fobs.pdf')
+# figures_dir = '/mnt/c/Users/sgagn/OneDrive/Documents/phd/lyman_alpha/figures/'
+# plt.savefig(f'{figures_dir}/fobs.pdf')
 plt.show()

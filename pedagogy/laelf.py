@@ -51,7 +51,9 @@ if __name__ == "__main__":
     plt.rcParams.update(rc) 
     plt.rcParams["font.serif"] = ["Times New Roman"] + plt.rcParams["font.serif"]
     plt.rcParams.update({'font.size': 14})
-    plt.style.use('dark_background')
+    presentation = False
+    if presentation:
+        plt.style.use('dark_background')
     import matplotlib as mpl
     label_size = 20
     font_size = 30
@@ -60,8 +62,12 @@ if __name__ == "__main__":
 
     # supply redshift as an argument
     z_list = [4.9, 5.7, 6.6, 7.0, 7.3]
-    color_list = ['cyan', 'cyan', 'red', 'red', 'red']
-    alpha_list = [0.2, 0.3, 0.5, 0.8, 1.0]
+    if presentation:
+        color_list = ['cyan', 'cyan', 'red', 'red', 'red']
+        alpha_list = [0.2, 0.3, 0.5, 0.8, 1.0]
+    else:
+        color_list = ['blue', 'blue', 'red', 'red', 'red']
+        alpha_list = [0.4, 0.8, 0.6, 0.8, 1.0]
 
     fig, axs = plt.subplots(1, 1, figsize=(8, 8), constrained_layout=True)
 

@@ -108,7 +108,7 @@ for i, (muv, muve, lly, llye, dv, dve, lha, lhae) in enumerate(zip(_muv_wide, _m
     dv_wide[1000*i:1000*(i+1)] = np.random.normal(dv, dve, 1000)
     lum_ha_wide[1000*i:1000*(i+1)] = np.random.normal(lha, lhae, 1000)
     lum_lya_wide[1000*i:1000*(i+1)][lum_lya_wide[1000*i:1000*(i+1)]<10] = np.mean(lum_lya_wide[1000*i:1000*(i+1)])  # replace with mean
-    dv_wide[1000*i:1000*(i+1)][dv_wide[1000*i:1000*(i+1)]<0.5] = np.mean(dv_wide[1000*i:1000*(i+1)])  # replace with mean
+    dv_wide[1000*i:1000*(i+1)][dv_wide[1000*i:1000*(i+1)]<10] = np.mean(dv_wide[1000*i:1000*(i+1)])  # replace with mean
     lum_ha_wide[1000*i:1000*(i+1)][lum_ha_wide[1000*i:1000*(i+1)]<10] = np.mean(lum_ha_wide[1000*i:1000*(i+1)])  # replace with mean
 
     
@@ -119,7 +119,7 @@ for i, (muv, muve, lly, llye, dv, dve, lha, lhae) in enumerate(zip(_muv_deep, _m
     dv_deep[1000*i:1000*(i+1)] = np.random.normal(dv, dve, 1000)
     lum_ha_deep[1000*i:1000*(i+1)] = np.random.normal(lha, lhae, 1000)
     lum_lya_deep[1000*i:1000*(i+1)][lum_lya_deep[1000*i:1000*(i+1)]<10] = np.mean(lum_lya_deep[1000*i:1000*(i+1)])  # replace with mean
-    dv_deep[1000*i:1000*(i+1)][dv_deep[1000*i:1000*(i+1)]<0.5] = np.mean(dv_deep[1000*i:1000*(i+1)])  # replace with mean
+    dv_deep[1000*i:1000*(i+1)][dv_deep[1000*i:1000*(i+1)]<10] = np.mean(dv_deep[1000*i:1000*(i+1)])  # replace with mean
     lum_ha_deep[1000*i:1000*(i+1)][lum_ha_deep[1000*i:1000*(i+1)]<10] = np.mean(lum_ha_deep[1000*i:1000*(i+1)])  # replace with mean
 
 def normal_cdf(x, mu=0):
@@ -154,7 +154,7 @@ def p_obs(lly, dv, lha, muv, mode='wide'):
     f_ha = lha / lum_flux_factor
     luv = 10**(0.4*(51.64 - muv))
     w_emerg = (1215.67/2.47e15)*(lly/luv)
-    f_ha_lim = 1e-18  # H-alpha flux limit in erg/s/cm^2
+    f_ha_lim = 2e-18  # H-alpha flux limit in erg/s/cm^2
     v_lim = 10**vcirc(muv)
     if mode == 'wide':
         w_lim = 80
@@ -195,8 +195,8 @@ def multivar_normal_pdf(x, mu1, mu2, mu3, std1, std2, std3):
                        (x[2] - mu3) ** 2 / std3 ** 2)
     return coeff * np.exp(exponent)
 
-XWIDE = np.array([np.log10(lum_lya_wide), np.log10(dv_wide), np.log10(lum_ha_wide)])
-XDEEP = np.array([np.log10(lum_lya_deep), np.log10(dv_deep), np.log10(lum_ha_deep)])
+XWIDE = np.array([np.log10(lum_lya_wide), dv_wide, np.log10(lum_ha_wide)])
+XDEEP = np.array([np.log10(lum_lya_deep), dv_deep, np.log10(lum_ha_deep)])
 
 # Y = PCA T of X
 os.makedirs('../data/pca', exist_ok=True)
@@ -248,7 +248,7 @@ def fit_transform():
         lly, dv, lha = X
         # I also need to draw MUV from the relevant distribution
         muv_deep = np.random.choice(muv_space, size=1000, p=p_muv_space)
-        _p_obs_deep = p_obs(10**lly, 10**dv, 10**lha, muv_deep, mode='deep')
+        _p_obs_deep = p_obs(10**lly, dv, 10**lha, muv_deep, mode='deep')
 
         lly = (lly - XC[0])/XSTD[0]
         dv = (dv - XC[1])/XSTD[1]
@@ -272,9 +272,9 @@ def fit_transform():
         err3 = popt3s*np.sqrt(pcov3s/popt3s**2 + pcov3/popt3**2)
 
         # plt.scatter(lly_deep*XSTD[0] + XC[0], line(lly_deep, *popt2s)*XSTD[1] + XC[1])
-        # plt.errorbar(np.log10(lum_lya), np.log10(dv_lya), \
+        # plt.errorbar(np.log10(lum_lya), dv_lya, \
         #         xerr=np.log10(lum_lya_err)/lum_lya/np.log(10), \
-        #         yerr=np.log10(dv_lya_err)/dv_lya/np.log(10), fmt='o', color='red', markersize=5)
+        #         yerr=dv_lya_err, fmt='o', color='red', markersize=5)
         # plt.show()
         # # quit()
 
@@ -286,6 +286,8 @@ def fit_transform():
     
     bounds = [(-1, 1)] * 4  # coefficients for the linear combination of basis matrices
     result = differential_evolution(objective_function, bounds, maxiter=200, disp=True)
+    # result = differential_evolution(objective_function, bounds=bounds, maxiter=500, mutation=(0.1, 1.9), \
+    #                                  popsize=20, disp=True, recombination=0.5)
     print(f'Optimization result: {result}')
     c1, c2, c3, c4 = result.x
     print(f'Coefficients: {c1}, {c2}, {c3}, {c4}')
@@ -294,21 +296,27 @@ def fit_transform():
     np.save('../data/pca/A.npy', A)
     return A
 
-A = fit_transform()
-# A = np.load('../data/pca/A.npy')
+# TOGGLE
 
-# print(A)
+A = fit_transform()
+# I = np.array([[1,0,0],[0,1,0],[0,0,1]])
+# A1 = np.array([[0,0,0],[0,0,-1],[0,1,0]])
+# A2 = np.array([[0,0,1],[0,0,0],[-1,0,0]])
+# A3 = np.array([[0,-1,0],[1,0,0],[0,0,0]])
+# A = np.load('../data/pca/A.npy')
+# c1, c2, c3, c4 = 1, 1, 1/3, -1
+# A = c1*I + c2*A1 + c3*A2 + c4*A3
+
 Y = np.random.normal(0, 1, (3, 1000))
 X = (A @ Y) * XSTD + XC
-# now apply selection effects
 lly, dv, lha = X
 muv_space = np.linspace(-20, -16, 1000)
 p_muv_space = p_muv(muv_space, phi_5, muv_star_5, alpha_5)
 p_muv_space /= np.sum(p_muv_space)  # normalize
 _muv_wide = np.random.choice(muv_space, size=1000, p=p_muv_space)
 _muv_deep = np.random.choice(muv_space, size=1000, p=p_muv_space)
-_p_obs_wide = p_obs(10**lly, 10**dv, 10**lha, _muv_wide, mode='wide')
-_p_obs_deep = p_obs(10**lly, 10**dv, 10**lha, _muv_deep, mode='deep')
+_p_obs_wide = p_obs(10**lly, dv, 10**lha, _muv_wide, mode='wide')
+_p_obs_deep = p_obs(10**lly, dv, 10**lha, _muv_deep, mode='deep')
 
 lly_wide = lly[_p_obs_wide > 0.5]
 lly_deep = lly[_p_obs_deep > 0.5]
@@ -321,19 +329,13 @@ lly_space = np.linspace(38, 44, 100)
 dv_space = np.linspace(1, 3, 100)
 lha_space = np.linspace(38, 44, 100)
 
-# y_space = np.linalg.inv(A)@(lly_space - XC[0])/XSTD[0]
-# print(y_space.shape)
-# plt.plot(lha_space, y_space[0])
-# plt.show()
-# quit()
-
 fig, axs = plt.subplots(1, 3, figsize=(15, 5), constrained_layout=True)
 
 axs[0].scatter(lly, dv, s=5, label='all', color='cyan')
 axs[0].scatter(lly_deep, dv_deep, s=5, label='observed', color='lime')
-axs[0].errorbar(np.log10(lum_lya), np.log10(dv_lya), \
+axs[0].errorbar(np.log10(lum_lya), dv_lya, \
                 xerr=lum_lya_err/lum_lya/np.log(10), \
-                yerr=dv_lya_err/dv_lya/np.log(10), fmt='o', color='red', markersize=5)
+                yerr=dv_lya_err, fmt='o', color='red', markersize=5)
 axs[0].set_xlabel(r'$\log_{10}L_{\rm Ly\alpha}$ [erg/s]', fontsize=font_size)
 axs[0].set_ylabel(r'$\Delta v$ [km/s]', fontsize=font_size)
 # axs[0].set_yscale('log')
@@ -350,7 +352,7 @@ axs[1].set_ylabel(r'$\log_{10}L_{\rm H\alpha}$ [erg/s]', fontsize=font_size)
 
 axs[2].scatter(dv, lha, s=5, label='all', color='cyan')
 axs[2].scatter(dv_deep, lha_deep, s=5, label='Deep sample', color='lime')
-axs[2].errorbar(np.log10(dv_lya), np.log10(lum_ha), xerr=dv_lya_err/dv_lya/np.log(10), \
+axs[2].errorbar(dv_lya, np.log10(lum_ha), xerr=dv_lya_err, \
                 yerr=lum_ha_err/lum_ha/np.log(10), \
                 fmt='o', color='red', markersize=5)
 # axs[2].set_xscale('log')

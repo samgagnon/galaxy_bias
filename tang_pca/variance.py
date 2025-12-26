@@ -24,8 +24,10 @@ label_size = 20
 font_size = 30
 mpl.rcParams['xtick.labelsize'] = label_size 
 mpl.rcParams['ytick.labelsize'] = label_size
-presentation = True
-# presentation = False
+# helper for inset colorbars
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+# presentation = True
+presentation = False
 if presentation:
     plt.style.use('dark_background')
     cmap = 'Blues_r'
@@ -54,18 +56,21 @@ I = np.array([[1,0,0],[0,1,0],[0,0,1]])
 A1 = np.array([[0,0,0],[0,0,-1],[0,1,0]])
 A2 = np.array([[0,0,1],[0,0,0],[-1,0,0]])
 A3 = np.array([[0,-1,0],[1,0,0],[0,0,0]])
-# c1, c2, c3, c4 = 1, 1, 1/3, -1
-c1, c2, c3, c4 = np.load('../data/pca/coefficients.npy')
+c1, c2, c3, c4 = 1, 1, 1/3, -1
+# c1, c2, c3, c4 = np.load('../data/pca/coefficients.npy')
 A = c1 * I + c2 * A1 + c3 * A2 + c4 * A3
 xc = np.load('../data/pca/xc.npy')
 xstd = np.load('../data/pca/xstd.npy')
 m1, m2, m3, b1, b2, b3, std1, std2, std3, w1, w2, f1, f2, fh = np.load('../data/pca/fit_params.npy')
+# m1, m2, m3, b1, b2, b3, std1, std2, std3 = -0.05042401, -0.52413956, -0.36336859, \
+#     -0.91255108, -0.73920641, -0.4175795, 0.85332351, 0.45477191, 0.31269265
 theta = [w1, w2, f1, f2, fh]
 NSAMPLES = 100000
 muv_space = np.linspace(-24, -16, NSAMPLES)
-p_muv = schechter(muv_space, phi_5, muv_star_5, alpha_5)
-p_muv /= np.sum(p_muv)  # Normalize the probability distribution
-muv_sample = np.random.choice(muv_space, p=p_muv, size=NSAMPLES)
+# p_muv = schechter(muv_space, phi_5, muv_star_5, alpha_5)
+# p_muv /= np.sum(p_muv)  # Normalize the probability distribution
+# muv_sample = np.random.choice(muv_space, p=p_muv, size=NSAMPLES)
+muv_sample = np.random.uniform(-24, -16, NSAMPLES)
 muv_space = muv_sample
 hist_res = 50
 muv_side = np.linspace(-24, -16, hist_res)
@@ -82,7 +87,7 @@ y3 = np.random.normal(mu3, std3, NSAMPLES)
 Y = np.vstack((y1, y2, y3))
 X = (A @ Y) * xstd + xc
 
-X[1] = 10**X[1]  # dv in km/s
+# X[1] = 10**X[1]  # dv in km/s
 
 fig, axs = plt.subplots(3, 3, figsize=(15, 10), constrained_layout=True)
 
@@ -98,9 +103,30 @@ axs[0,1].hist2d(X[1], X[0], bins=(dv_side, lya_side),
 axs[0,1].set_yticklabels([])
 axs[0,1].set_xticklabels([])
 
-axs[0,2].hist2d(X[2], X[0], bins=(lha_side, lya_side),
-                            cmap=cmap, cmin=1, rasterized=True)
-# axs[0,2].scatter(X[2], X[0], s=1, color='cyan')
+h = axs[0,2].hist2d(X[2], X[0], bins=(lha_side, lya_side),
+                            cmap=cmap, cmin=1, rasterized=False)
+# ensure layout is drawn so axis positions are final
+fig.canvas.draw()
+# place a small colorbar inside the top-right axes using its bounding box
+bbox = axs[0,2].get_position()
+left = bbox.x0 + bbox.width*0.88
+bottom = bbox.y0 + bbox.height*0.10
+width = 0.015  # make colorbar much thinner
+height = bbox.height*0.80
+cax = fig.add_axes([left, bottom, width, height])
+cbar = fig.colorbar(h[3], cax=cax, orientation='vertical')
+cbar.set_label('probability density [arb. units]', fontsize=10, labelpad=4)
+cax.yaxis.set_ticks_position('left')
+# replace numeric tick labels with qualitative labels at min and max
+try:
+    vmin, vmax = cbar.mappable.get_clim()
+    cbar.set_ticks([vmin, vmax])
+    cbar.set_ticklabels(['low', 'high'])
+except Exception:
+    cbar.set_ticks([0, 1])
+    cbar.set_ticklabels(['low', 'high'])
+cbar.ax.tick_params(labelsize=9)
+
 axs[0,2].set_yticklabels([])
 axs[0,2].set_xticklabels([])
 
@@ -140,6 +166,6 @@ axs[2,2].hist2d(X[2], X[2], bins=(lha_side, lha_side),
 axs[2,2].set_yticklabels([])
 axs[2,2].set_xlabel(r'$\log_{10}L_{\rm H\alpha}$ [erg/s]', fontsize=font_size)
 
-figures_dir = '/mnt/c/Users/sgagn/Documents/phd/lyman_alpha/figures/'
-# plt.savefig(f'{figures_dir}/prop_var.pdf', bbox_inches='tight')
+figures_dir = '/mnt/c/Users/sgagn/OneDrive/Documents/phd/lyman_alpha/figures/'
+plt.savefig(f'{figures_dir}/prop_var.pdf', bbox_inches='tight')
 plt.show()

@@ -1,3 +1,16 @@
+import matplotlib.pyplot as plt
+rc = {"font.family" : "serif", 
+    "mathtext.fontset" : "stix"}
+plt.rcParams.update(rc)
+plt.rcParams["font.serif"] = ["Times New Roman"] + plt.rcParams["font.serif"]
+plt.rcParams.update({'font.size': 14})
+# plt.style.use('dark_background')
+import matplotlib as mpl
+label_size = 20
+font_size = 30
+mpl.rcParams['xtick.labelsize'] = label_size 
+mpl.rcParams['ytick.labelsize'] = label_size
+
 import numpy as np
 
 from astropy.cosmology import Planck18, z_at_value
@@ -42,6 +55,10 @@ logphi_err_b21_6_low[np.isnan(logphi_err_b21_6_low)] = np.abs(logphi_b21_6[np.is
 logphi_err_b21_7_low[np.isnan(logphi_err_b21_7_low)] = np.abs(logphi_b21_7[np.isnan(logphi_err_b21_7_low)])
 logphi_err_b21_8_low[np.isnan(logphi_err_b21_8_low)] = np.abs(logphi_b21_8[np.isnan(logphi_err_b21_8_low)])
 
+logphi_b21 = [logphi_b21_6, logphi_b21_7, logphi_b21_8]
+logphi_err_b21_up = [logphi_err_b21_6_up, logphi_err_b21_7_up, logphi_err_b21_8_up]
+logphi_err_b21_low = [logphi_err_b21_6_low, logphi_err_b21_7_low, logphi_err_b21_8_low]
+
 def get_halo_field(redshift):
     """
     Loads a halo field from disk.
@@ -58,54 +75,89 @@ def get_muv(sfr):
     muv = 51.64 - np.log10(luv) / 0.4
     return muv
 
-if __name__ == "__main__":
-
-    import matplotlib.pyplot as plt
-    rc = {"font.family" : "serif", 
-        "mathtext.fontset" : "stix"}
-    plt.rcParams.update(rc)
-    plt.rcParams["font.serif"] = ["Times New Roman"] + plt.rcParams["font.serif"]
-    plt.rcParams.update({'font.size': 14})
-    plt.style.use('dark_background')
-
-    redshift = 5.7
-    # redshift = 6.6
+def get_stellar_mass(halo_masses, stellar_rng, mode='10'):
+    sigma_star = 0.5
+    mp1 = 1e10
+    mp2 = 2.8e11
+    M_turn = 10**(8.7)
+    a_star = 0.5
+    a_star2 = -0.61
+    f_star10 = 0.05
+    omega_b = Planck18.Ob0
+    omega_m = Planck18.Om0
+    baryon_frac = omega_b/omega_m
     
-    halo_field = get_halo_field(redshift)
+    high_mass_turnover = ((mp2/mp1)**a_star + (mp2/mp1)**a_star2)/((halo_masses/mp2)**(-1*a_star)+(halo_masses/mp2)**(-1*a_star2))
+    stoc_adjustment_term = 0.5*sigma_star**2
 
-    x, y, z, halo_masses, stellar_masses, sfr = halo_field
+    if mode == '10':
+        low_mass_turnover =  10**(-1*M_turn/halo_masses + stellar_rng*sigma_star - stoc_adjustment_term)
+    elif mode == 'e':
+        low_mass_turnover = np.exp(-1*M_turn/halo_masses + stellar_rng*sigma_star - stoc_adjustment_term)
+    
+    stellar_mass = f_star10 * baryon_frac * halo_masses * (high_mass_turnover * low_mass_turnover)
+    return stellar_mass
 
-    # convert SFR to absolute UV magnitude
-    muv = get_muv(sfr)
+def get_sfr(stellar_mass, sfr_rng, z, mode='10'):
+    sigma_sfr_lim = 0.19
+    sigma_sfr_idx = -0.12
+    t_h = 1/Planck18.H(z).to('s**-1').value
+    t_star = 0.5
+    sfr_mean = stellar_mass / (t_star * t_h)
+    sigma_sfr = sigma_sfr_idx * np.log10(stellar_mass/1e10) + sigma_sfr_lim
+    sigma_sfr[sigma_sfr < sigma_sfr_lim] = sigma_sfr_lim
+    stoc_adjustment_term = sigma_sfr * sigma_sfr / 2. # adjustment to the mean for lognormal scatter
 
-    bin_edges = []
-    bin_centers = np.asarray(b21_mag[1])
-    bin_edge = np.zeros(len(bin_centers)+1)
-    bin_widths = (bin_centers[1:] - bin_centers[:-1])*0.5
-    bin_edge[0] = bin_centers[0]-bin_widths[0]
-    bin_edge[-1] = bin_centers[-1] + bin_widths[-1]
-    bin_edge[1:-1] = bin_widths + bin_centers[:-1]
-    bin_edges += [bin_edge]
+    if mode == '10':
+        sfr_sample = sfr_mean * 10**(sfr_rng*sigma_sfr - stoc_adjustment_term)
+    elif mode == 'e':
+        sfr_sample = sfr_mean * np.exp(sfr_rng*sigma_sfr - stoc_adjustment_term)
 
-    heights, bins = np.histogram(muv, bins=bin_edges[0])
-    # heights, bins = np.histogram(Llya)
-    bin_centers = 0.5*(bins[1:]+bins[:-1])
-    bin_widths = bins[1:]-bins[:-1]
-    uv_phi = heights/bin_widths/(200**3)
-    uv_phi_err = np.sqrt(heights)/bin_widths/(200**3)
-    log_uv_phi_err_up = np.abs(np.log10(uv_phi_err+uv_phi) - np.log10(uv_phi))
-    log_uv_phi_err_low = np.abs(np.log10(np.abs(uv_phi-uv_phi_err)) - np.log10(uv_phi))
-    log_uv_phi_err_low[np.isinf(log_uv_phi_err_low)] = np.abs(np.log10(uv_phi[np.isinf(log_uv_phi_err_low)]))
-    log_uv_asymmetric_error = np.array(list(zip(log_uv_phi_err_low, log_uv_phi_err_up))).T
+    return sfr_sample
 
+# halo_field = get_halo_field(redshift)
+# x, y, z, halo_masses, stellar_masses, sfr = halo_field
 
-    fig, ax = plt.subplots(figsize=(8, 6), constrained_layout=True)
+fig, axs = plt.subplots(1, 3, figsize=(12, 6), constrained_layout=True)
 
-    ax.errorbar(bin_centers, np.log10(uv_phi), yerr=log_uv_asymmetric_error, fmt='o', color='white', label='This Work')
-    ax.errorbar(b21_mag[1], logphi_b21_7, yerr=[logphi_err_b21_7_low, logphi_err_b21_7_up], fmt='o', color='red', label='Bouwens+2021')
-    ax.set_xlabel(r'$M_{\rm UV}$')
-    ax.set_ylabel(r'$\log_{10}(\Phi)$')
-    # ax.set_xlim(-10, -5)
-    # ax.set_ylim(-8, -1)
-    ax.legend()
-    plt.show()
+fmt = ['o', 'x']
+
+for i, redshift in enumerate([6, 7, 8]):
+    sfr_rng = np.load(f'../data/uvlf/sfr_rng_{redshift:.0f}.npy')
+    str_rng = np.load(f'../data/uvlf/star_rng_{redshift:.0f}.npy')
+    halo_masses = np.load(f'../data/uvlf/halo_masses_{redshift:.0f}.npy')
+
+    for j, mode in enumerate(['10', 'e']):
+        str_mass = get_stellar_mass(halo_masses, str_rng, mode=mode)
+        sfr = get_sfr(str_mass, sfr_rng, redshift, mode=mode)
+
+        # convert SFR to absolute UV magnitude
+        muv = get_muv(sfr)
+
+        bin_edges = []
+        bin_centers = np.asarray(b21_mag[i])
+        bin_edge = np.zeros(len(bin_centers)+1)
+        bin_widths = (bin_centers[1:] - bin_centers[:-1])*0.5
+        bin_edge[0] = bin_centers[0]-bin_widths[0]
+        bin_edge[-1] = bin_centers[-1] + bin_widths[-1]
+        bin_edge[1:-1] = bin_widths + bin_centers[:-1]
+        bin_edges += [bin_edge]
+
+        heights, bins = np.histogram(muv, bins=bin_edges[0])
+        bin_centers = 0.5*(bins[1:]+bins[:-1])
+        bin_widths = bins[1:]-bins[:-1]
+        uv_phi = heights/bin_widths/(300**3)
+        uv_phi_err = np.sqrt(heights)/bin_widths/(300**3)
+
+        log_uv_phi_err_up = np.abs(np.log10(uv_phi_err+uv_phi) - np.log10(uv_phi))
+        log_uv_phi_err_low = np.abs(np.log10(np.abs(uv_phi-uv_phi_err)) - np.log10(uv_phi))
+        log_uv_phi_err_low[np.isinf(log_uv_phi_err_low)] = np.abs(np.log10(uv_phi[np.isinf(log_uv_phi_err_low)]))
+        log_uv_asymmetric_error = np.array(list(zip(log_uv_phi_err_low, log_uv_phi_err_up))).T
+
+        axs[i].errorbar(bin_centers, np.log10(uv_phi), yerr=log_uv_asymmetric_error, fmt=fmt[j], color='black', label=f'21cmFAST: base {mode}')
+        axs[i].errorbar(b21_mag[i], logphi_b21[i], yerr=[logphi_err_b21_low[i], logphi_err_b21_up[i]], fmt='o', color='red', label='Bouwens+2021')
+        axs[i].set_xlabel(r'${\rm M}_{\rm UV}$', fontsize=font_size)
+
+axs[0].set_ylabel(r'$\log_{10}(\Phi)$', fontsize=font_size)
+axs[0].legend()
+plt.show()

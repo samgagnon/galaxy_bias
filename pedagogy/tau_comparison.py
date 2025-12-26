@@ -43,7 +43,7 @@ if __name__ == "__main__":
     plt.rcParams.update(rc) 
     plt.rcParams["font.serif"] = ["Times New Roman"] + plt.rcParams["font.serif"]
     plt.rcParams.update({'font.size': 14})
-    plt.style.use('dark_background')
+    # plt.style.use('dark_background')
 
     cm = plt.get_cmap('bwr')
 
@@ -70,6 +70,16 @@ if __name__ == "__main__":
 
     # mock_igm = np.exp(-1*miralda_escude(z_range, 50))
     mock_igm_base = np.exp(-1*tau_igm_table.T[1000])
+    mock_igm = mock_igm_base
+
+    # fig, axs = plt.subplots()
+    # axs.set_xlabel('velocity [km/s]', fontsize=16)
+    # axs.set_ylabel('flux [arb. units]', fontsize=16)
+    # axs.set_xlim(-150, 500)
+    # axs.set_ylim(-0.1, 1.1)
+    # axs.plot(velocity_range, double_asymmetric_gaussian(velocity_range, 50, 20, 0.2), color='blue', linewidth=2, label='Intrinsic Lyα line')
+    # plt.show()
+    # quit()
 
     from matplotlib import animation
 
@@ -82,17 +92,19 @@ if __name__ == "__main__":
 
     line1 = ax.plot(velocity_range, mock_line, color='blue', linewidth=2)
     line2 = ax.plot(velocity_range, mock_igm_base, color='orange', linewidth=2)
-    line3 = ax.plot(velocity_range, mock_line*mock_igm_base, color='cyan', linewidth=2)
+    line3 = ax.plot(velocity_range, mock_line*mock_igm_base, color='magenta', linewidth=2)
 
     def update(frame):
         if frame < 100:
-            mock_igm = np.interp(velocity_range+10-frame, velocity_range, mock_igm_base)
-            # mock_line = double_asymmetric_gaussian(velocity_range, frame*5, 20, 0.2)
+            # mock_igm = np.interp(velocity_range+10-frame, velocity_range, mock_igm_base)
+            mock_line = double_asymmetric_gaussian(velocity_range, frame, 20, 0.2)
+            line1[0].set_ydata(mock_line)
             line2[0].set_ydata(mock_igm)
             line3[0].set_ydata(mock_line*mock_igm)
         else:
-            # mock_line = double_asymmetric_gaussian(velocity_range, 250-(frame-50)*5, 20, 0.2)
-            mock_igm = np.interp(velocity_range+10-100+(frame-100), velocity_range, mock_igm_base)
+            mock_line = double_asymmetric_gaussian(velocity_range, 150-(frame-50), 20, 0.2)
+            # mock_igm = np.interp(velocity_range+10-100+(frame-100), velocity_range, mock_igm_base)
+            line1[0].set_ydata(mock_line)
             line2[0].set_ydata(mock_igm)
             line3[0].set_ydata(mock_line*mock_igm)
 
